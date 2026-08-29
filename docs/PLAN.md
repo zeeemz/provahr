@@ -328,48 +328,72 @@ New entities:
 | `SessionAssessment` | Rollup: total score, strengths, gaps, recommendation, flag summary, collusion flags — HR-only |
 | `VoidedItem` | Admin/HR void of a pool item across sessions → triggers score re-normalization |
 
-## 9. API surface (key endpoints, v1)
+## 9. API surface (as implemented — mirrored from the routers; full reference: docs/API.md)
 
 ```
-# Admin — LLM providers
+# Health & first-run setup (public; install hard-locks after first success)
+GET    /health
+GET    /api/setup/status                   # boolean install state
+GET    /api/setup · /setup                 # first-run wizard page (+ /api/setup/wizard.js)
+POST   /api/setup/install                  # company + first admin (10/hour/IP)
+
+# Auth & users (local mode; Keycloak mode = docs/RBAC.md)
+POST   /api/auth/register                  # single-company bootstrap (409 once installed)
+POST   /api/auth/login                     # email + password → JWT
+GET    /api/auth/me                        # current user
+GET    /api/users                          # list company users (auth)
+POST   /api/users                          # add team member (ADMIN)
+
+# Admin — LLM providers (ADMIN; keys redacted, AES-256-GCM at rest)
+GET    /api/admin/llm-providers            # list (redacted — last-4 only)
 POST   /api/admin/llm-providers            # add provider config
-GET    /api/admin/llm-providers            # (keys redacted)
-PATCH  /api/admin/llm-providers/:id        # update / activate
-POST   /api/admin/llm-providers/:id/test   # connectivity smoke test
+PATCH  /api/admin/llm-providers/:id        # update (apiKey absent = keep)
+POST   /api/admin/llm-providers/:id/activate # exactly one active (atomic)
+POST   /api/admin/llm-providers/:id/test   # live connectivity smoke test
+DELETE /api/admin/llm-providers/:id
 
-# Roles & JD (implemented on the jobs spine)
-POST   /api/jobs/intake                    # URLs + screenshots + notes → creates draft job + JD generation job
-GET    /api/jobs/:id/jd                    # generation status + draft JD (HR reviews)
-PATCH  /api/jobs/:id/jd                    # HR edits the draft
-POST   /api/jobs/:id/jd/approve            # approve JD → draft fields copied onto the job
+# Jobs CRUD + role intake → JD (ADMIN/RECRUITER; company-scoped)
+GET    /api/jobs                           # list (filters: status, roleFamily, q)
+POST   /api/jobs                           # create
+GET|PATCH|DELETE /api/jobs/:jobId          # detail / update / delete
+POST   /api/jobs/:jobId/status             # publish (OPEN) / pause / close
+GET    /api/jobs/:jobId/applications       # pipeline board (auth)
+POST   /api/jobs/intake                    # URLs + screenshots + notes → JD job (16mb limit)
+GET    /api/jobs/:jobId/jd                 # generation status + draft
+PATCH  /api/jobs/:jobId/jd                 # HR edits the draft (JD_REVIEW only)
+POST   /api/jobs/:jobId/jd/approve         # draft fields copied onto the job
 
-# Test blueprint & sealed pool
-PUT    /api/roles/:id/blueprint            # create/edit blueprint
-POST   /api/roles/:id/blueprint/samples    # generate sample preview items
-POST   /api/roles/:id/pool/seal            # generate + seal pool (admin/recruiter)
-POST   /api/roles/:id/pool/reseal          # destroy + regenerate (invalidates nothing in-flight)
+# Test blueprint & sealed pool (ADMIN/RECRUITER, on the jobs spine)
+PUT    /api/jobs/:jobId/blueprint          # create/edit blueprint (needs approved JD)
+GET    /api/jobs/:jobId/blueprint          # blueprint + pool counts
+POST   /api/jobs/:jobId/blueprint/samples  # queue sample preview items (202)
+GET    /api/jobs/:jobId/blueprint/samples  # preview items (never drawn)
+POST   /api/jobs/:jobId/pool/seal          # generate + seal pool (202, worker)
+POST   /api/jobs/:jobId/pool/reseal        # destroy old pool now + regenerate
+GET    /api/jobs/:jobId/pool               # counts ONLY — never items
 # NOTE: no endpoint anywhere returns unsealed future-session items.
 
-# Publish
-POST   /api/roles/:id/publish              # to public board
-
 # Public / candidate (no account; web + mobile share this contract)
-GET    /api/public/roles                   # board
-POST   /api/public/roles/:id/apply         # creates application, issues test-link token
-GET    /api/public/test/:token             # consent screen + test meta (never items)
-POST   /api/public/test/:token/start       # draws items + realizes variants, starts clock
-POST   /api/public/test/:token/answers     # upsert answer(s): valuations (swipe), choice, or text (+ signals batch)
-POST   /api/public/test/:token/review      # enter/leave bounded review pass (clock keeps running)
-POST   /api/public/test/:token/submit      # finalize → candidate sees "submitted"
+GET    /api/public/jobs                    # board (OPEN jobs, testRequired flag)
+GET    /api/public/jobs/:jobId             # public detail
+POST   /api/public/jobs/:jobId/apply       # application + one-time test-link token (20/min/IP)
+GET    /api/public/test/:token             # consent meta (uniform 404, never items)
+POST   /api/public/test/:token/start       # draws items + variants, starts clock (201/200)
+GET    /api/public/test/:token/session     # refresh-safe session view
+POST   /api/public/test/:token/answers     # upsert one answer (swipe/mcq/text shapes)
+POST   /api/public/test/:token/signals     # batched proctoring evidence
+POST   /api/public/test/:token/submit      # finalize → { submitted: true } only
 
-# HR — evaluations & pipeline (auth)
-GET    /api/roles/:id/applications
-GET    /api/applications/:id               # X-ray: answers, runs, signals, evaluations (post-submission only)
-GET    /api/applications/:id/assessment    # session rollup
-POST   /api/admin/items/:id/void           # void item across sessions + re-normalize scores
+# HR — pipeline, X-ray, void, interviews, stats (auth)
+GET    /api/applications/:id               # detail + history + interviews + scorecards
+GET    /api/applications/:id/xray          # answers, runs, signals, evaluations (post-submission only)
 PATCH  /api/applications/:id/stage         # human pipeline move (validated)
 POST   /api/applications/:id/status        # reject (reason required) / withdraw / reopen
-# + interviews, scorecards, dashboard stats (as in current scaffold)
+POST   /api/applications/admin/items/:itemId/void  # (ADMIN) void item across sessions + re-normalize
+GET|POST /api/applications/:id/interviews  # list / schedule (ADMIN/RECRUITER)
+PATCH  /api/interviews/:id                 # reschedule / reassign / status
+POST   /api/interviews/:id/scorecard       # submit scorecard (any company member)
+GET    /api/stats                          # dashboard aggregates
 ```
 
 ## 10. Fairness, privacy & security commitments

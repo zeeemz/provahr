@@ -63,14 +63,16 @@
 ## 5. CI layout (GitHub Actions)
 
 ```
-jobs:
-  api:        npm ci → prisma generate → typecheck → T1–T3 (postgres service)
-  shared:     typecheck → unit
-  worker:     typecheck → unit (+ docker available for T4 when sandbox lands)
-  web:        typecheck → build
-  mobile:     typecheck → unit (from Phase 6)
-  e2e:        main + nightly → seeded stack → Playwright (from Phase 5)
+jobs:                       # CURRENT reality (.github/workflows/ci.yml)
+  api:        npm ci → prisma generate → db push → typecheck → T1–T3
+              (+ the INTEGRATION_DB=1 leakage matrix against a postgres service)
+  shared:     npm ci → typecheck
 ```
+
+Planned tiers not yet in CI (tracked in PROGRESS): `worker` (with Docker for
+T4), `web` (typecheck + build), `mobile` (typecheck), and a seeded-stack
+`e2e` Playwright job. Until they land, the web/mobile `tsc` gates and the
+sandbox T4 suite run locally per wave.
 
 No secrets required for green CI. Real-provider smoke tests run only when
 `LLM_SMOKE_KEY` secret is present (otherwise skipped, visibly).
