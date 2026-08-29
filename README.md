@@ -2,15 +2,17 @@
 
 **The AI-native, open-source hiring platform. AI works for HR — candidates prove their skill.**
 
-> 🚧 **Pre-alpha** — the tracking spine is implemented; AI-native features are under
-> active development. See the plan of record: [docs/PLAN.md](docs/PLAN.md)
+> ✅ **MVP complete** — the full loop runs: API + worker + web portal
+> (HR console, public board, candidate test UI) are implemented and tested.
+> **Pending:** the Expo mobile app. See the [Roadmap](#roadmap) and the
+> [plan of record](docs/PLAN.md).
 
 ## What makes it different
 
 - **AI-native loop** — describe a person (paste a LinkedIn screenshot or URL) and get
   back a job description, a sealed skills test, and LLM-evaluated results. HR edits and
   approves every step; AI never decides.
-- **Proof over polish** — candidates take real, sandbox-executed tests. Bash and code
+- **Proof over polish** — candidates take real, sandbox-executed tests. Code
   tasks run in hardened, per-run containers with hidden test cases — not take-home
   essays anyone can delegate.
 - **Bulletproof question integrity** — HR designs the blueprint (skills, difficulty,
@@ -29,67 +31,84 @@
 
 ```
 ├── apps/
-│   ├── api/         # REST API — tracking spine (implemented)
-│   ├── web/         # HR console + candidate portal (planned, Phase 4+)
-│   ├── worker/      # LLM + sandbox jobs (planned, Phase 1+)
-│   └── mobile/      # Expo candidate app (planned, Phase 6+)
+│   ├── api/         # REST API + worker loop (Express + Prisma) — implemented
+│   │   └── src/worker.ts   # background jobs: JD generation, pool seal, evaluation
+│   ├── web/         # React portal (Vite) — HR console + candidate test UI, implemented
+│   ├── worker/      # placeholder — the worker ships inside apps/api today
+│   └── mobile/      # Expo candidate app (planned)
 ├── packages/
 │   └── shared/      # cross-app TypeScript contracts
-├── docs/            # plan, data model, testing, documentation guides
+├── docs/            # plan, data model, testing, self-hosting, RBAC guides
+├── scripts/         # install.sh / install.cmd
+├── docker-compose.yml   # db + Keycloak + API (migrate-on-boot)
 ├── LICENSE          # Apache-2.0
 └── NOTICE.md
 ```
 
-Today only `apps/api` is implemented: auth, roles/JBAC, jobs, the application
-pipeline, interviews, scorecards, stats, and tests. It is the tracking spine the
-AI-native loop (Phases 1–10) plugs into.
+## Quickstart (local dev)
 
-## Quickstart (local dev — API only today)
-
-Prerequisites: **Node.js ≥ 20**, **PostgreSQL 16**.
+Prerequisites: **Node.js ≥ 20**, **PostgreSQL 16** (Docker recommended).
 
 ```bash
 git clone https://github.com/YOUR_ORG/provahr.git
 cd provahr
 
-# Start Postgres 16
+# 1. Start Postgres 16 (compose also offers Keycloak + the API itself)
 docker compose up -d db
-# Note: docker-compose.yml ships in a later phase — for now run any
-# Postgres 16 and set DATABASE_URL in apps/api/.env.
 
+# 2. Install workspaces and prepare the database
+npm install                          # or: bash scripts/install.sh (does 2–4 for you)
 cd apps/api
-cp .env.example .env         # point DATABASE_URL at your Postgres
-npm install
-npx prisma migrate deploy    # create schema
-npm run seed                 # demo company, jobs, applications
-npm run dev                  # → http://localhost:4000
-npm test                     # test suite
+cp .env.example .env                 # point DATABASE_URL at your Postgres
+npx prisma generate
+npx prisma migrate deploy            # committed migrations (0001_init incl. singleton indexes)
+npm run seed                         # demo company, jobs, applications
+
+# 3. Run the API  → http://localhost:4000
+npm run dev
+
+# 4. Run the web portal (new terminal) → http://localhost:5173
+cd ../web && npm run dev             # dev server proxies /api → :4000
+
+# 5. Optional: the background worker (new terminal) — JD drafts, pool
+#    sealing, evaluation. Without it, enqueued jobs simply wait.
+cd ../api && npm run dev:worker
 ```
+
+First boot on a fresh database: open `http://localhost:4000/setup` — the
+self-locking wizard creates your company and first admin, then locks itself.
 
 Seeded demo login: `admin@acme.test` / `password123`.
 
+Tests: `npm test` from the repo root (API suite: unit + CI-gated integration tier).
+Data-model reference: [docs/DATA_MODEL.md](docs/DATA_MODEL.md); self-hosting
+(incl. LLM providers and Keycloak/Azure AD): [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md),
+[docs/RBAC.md](docs/RBAC.md).
+
 ## Roadmap
 
-One line per phase — details in [docs/PLAN.md §11](docs/PLAN.md):
+Details in [docs/PLAN.md §11](docs/PLAN.md); status tracker in
+[PROGRESS.md](PROGRESS.md).
 
-- **Phase 0** — repo restructure to monorepo, Apache-2.0 switch, plan sign-off
-- **Phase 1** — LLM provider abstraction + admin CRUD + connectivity test
-- **Phase 2** — role intake → JD generation (screenshot + URL + LLM) with HR edit loop
-- **Phase 3** — blueprint editor + sample preview + sealed pool generation (+ re-seal)
-- **Phase 4** — public job board, apply flow, one-time test links
-- **Phase 5** — candidate test portal (web): consent, draw + variants, Swipe-MCQ and
-  other formats, review pass, clock, signal capture
-- **Phase 6** — candidate mobile app (Expo): browse, apply, consent, swipe-gesture
-  sessions, signal parity
-- **Phase 7** — sandbox executor (Docker) + hidden test cases + execution results
-- **Phase 8** — LLM evaluation pipeline (verdicts, AI-likelihood, collusion) + HR
-  X-ray + void
-- **Phase 9** — pipeline integration (Test/Review stages) + dashboard + flags
-- **Phase 10** — hardening: rate limits, key + pool encryption, retention, docs,
-  seed, Compose deploy
-
-Phases 1–3 are demoable standalone; 4–8 form the candidate loop; 9 ties everything
-into the ATS spine.
+- [x] **Phase 0** — monorepo, Apache-2.0, plan sign-off
+- [x] **Phase 1** — LLM provider abstraction + admin CRUD + connectivity test
+- [x] **Phase 2** — role intake → JD generation (screenshot + URL + LLM) with HR edit loop
+- [x] **Phase 3** — blueprint editor + sample preview + sealed pool generation (+ re-seal)
+- [x] **Phase 4** — public job board, apply flow, one-time test links
+- [x] **Phase 5** — candidate test portal (web): consent, draw + variants, Swipe-MCQ
+      and other formats, review pass, hard clock, signal capture
+- [x] **Phase 7** — sandbox executor (Docker) + hidden test cases + execution results
+- [x] **Phase 8** — LLM evaluation pipeline (verdicts, AI-likelihood, collusion) + HR
+      X-ray + void-with-renormalization
+- [x] **Phase 9 (rules)** — pipeline stage vocabulary for the AI loop
+      (`Applied → Test → Review → Interview → Offer → Hired`, rules-level pending
+      the Stage enum migration)
+- [ ] **Phase 6 / 9b** — Expo mobile app: browse, apply, consent, swipe-gesture
+      sessions, signal parity
+- [ ] **Phase 10 residue** — hardening backlog: live-docker sandbox verification,
+      shared rate-limiter store across API+worker, per-session **data variants**
+      (v1 variants reorder options only), Stage enum migration (TEST/REVIEW),
+      retention jobs
 
 ## Contributing
 

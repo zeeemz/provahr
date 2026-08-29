@@ -632,3 +632,119 @@ describe('runEvaluation — collusion flag (exact-match, flag only)', () => {
     expect(assessment.create.recommendation).not.toContain('collusion');
   });
 });
+
+// ─── runEvaluation: CODE format via the sandbox path (wave-8 QA F7 owed test) ──
+//
+// runEvaluation builds its executor lazily with a hardcoded
+// createExecutor('docker') — the service (not editable here) has no injection
+// seam for it. So this describe — the LAST in the file — re-imports the
+// service under vi.doMock of '../src/lib/sandbox', swapping createExecutor for
+// a FakeExecutor. The file-level prisma vi.mock registry survives
+// vi.resetModules, so the re-imported service runs against the same shared
+// mock fns primed above; existing tests are untouched (the executor is lazy
+// and no earlier fixture is CODE format).
+describe('runEvaluation — CODE format (sandbox path, no LLM configured)', () => {
+  it('executes code against hidden cases, writes the ExecutionResult, and scores SANDBOX with a skipped-LLM note', async () => {
+    primeRunEvaluation();
+
+    // One submitted CODE answer; the pool carries its item in a real crypto box.
+    const codeItem: AssessmentItem = {
+      id: 'item-code',
+      format: 'CODE',
+      prompt: 'Print the sum of two integers given as argv arguments.',
+      language: 'NODE',
+      hiddenCases: [
+        { name: 'basic', args: ['2', '3'], expectedStdout: '5' },
+        { name: 'negative', args: ['-1', '1'], expectedStdout: '0' },
+        { name: 'large', args: ['1000000', '1'], expectedStdout: '1000001' },
+      ],
+      difficulty: 'MEDIUM',
+      topics: ['node'],
+    };
+    poolFindFirst.mockResolvedValue({ itemsEncrypted: encryptSecret(JSON.stringify([codeItem])) });
+    sessionQuestionFindMany.mockImplementation(async (args: { where: Record<string, unknown> }) => {
+      const where = args?.where ?? {};
+      if (typeof where.sessionId === 'string') {
+        return [
+          {
+            id: 'sq-c',
+            order: 1,
+            format: 'CODE',
+            itemId: 'item-code',
+            answer: swipeAnswerRow({ text: 'console.log(Number(process.argv[2]) + Number(process.argv[3]))' }),
+          },
+        ];
+      }
+      if (where.itemId && typeof where.itemId === 'object') return []; // collusion probe
+      return [];
+    });
+
+    // The fake sandbox answers the service's production executor request:
+    // 2 of the 3 hidden cases pass.
+    const createExecutorArgs: unknown[][] = [];
+    vi.resetModules();
+    vi.doMock('../src/lib/sandbox', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../src/lib/sandbox')>();
+      return {
+        ...actual,
+        createExecutor: (...args: unknown[]) => {
+          createExecutorArgs.push(args);
+          return new actual.FakeExecutor(() => ({
+            outcomes: [
+              { name: 'basic', passed: true },
+              { name: 'negative', passed: true },
+              { name: 'large', passed: false, expectedStdoutExcerpt: '1000001', actualStdoutExcerpt: 'NaN' },
+            ],
+            allPassed: false,
+            stdout: '5\n0\n',
+            stderr: '',
+            exitCode: 0,
+            durationMs: 12,
+            truncated: false,
+          }));
+        },
+      };
+    });
+    const { runEvaluation: runEvaluationWithFakeSandbox } = await import('../src/modules/applications/evaluation.service');
+
+    await runEvaluationWithFakeSandbox('sess-1');
+
+    // The service asked for its production executor kind exactly once (lazy:
+    // one CODE question → one executor); the fake answered it.
+    expect(createExecutorArgs).toEqual([['docker']]);
+
+    // ExecutionResult written verbatim from the sandbox response.
+    expect(executionResultUpsert).toHaveBeenCalledTimes(1);
+    const execArg = executionResultUpsert.mock.calls[0]![0] as {
+      where: { sessionQuestionId: string };
+      create: Record<string, unknown>;
+    };
+    expect(execArg.where.sessionQuestionId).toBe('sq-c');
+    expect(execArg.create).toMatchObject({ exitCode: 0, durationMs: 12, truncated: false, stdout: '5\n0\n', stderr: '' });
+    expect(execArg.create.caseResults).toHaveLength(3);
+
+    // Evaluation: deterministic sandbox score (2/3 → PARTIAL), LLM review
+    // explicitly skipped, aiLikelihood stays LOW (no evidence — never guessed).
+    expect(evaluationUpsert).toHaveBeenCalledTimes(1);
+    const evalArg = evaluationUpsert.mock.calls[0]![0] as { create: Record<string, unknown> };
+    expect(evalArg.create).toMatchObject({ verdict: 'PARTIAL', method: 'SANDBOX', aiLikelihood: 'LOW' });
+    expect(evalArg.create.score).toBeCloseTo(2 / 3);
+    const detail = evalArg.create.detail as { note?: string; passed: number; total: number };
+    expect(detail.passed).toBe(2);
+    expect(detail.total).toBe(3);
+    expect(detail.note).toContain('no active provider');
+    expect(evalArg.create.qualityNotes).toBeUndefined();
+
+    // Rollup includes the sandbox score; FLAG, NEVER AUTO-REJECT.
+    const assessment = sessionAssessmentUpsert.mock.calls[0]![0] as { create: Record<string, unknown> };
+    expect(assessment.create.totalScore).toBeCloseTo(2 / 3);
+    expect(assessment.create.gaps).toBe('node (0/1)'); // PARTIAL is not CORRECT
+    expect(assessment.create.recommendation).toContain('humans');
+    expect(applicationUpdate).not.toHaveBeenCalled();
+
+    // Hygiene: restore the module registry (nothing runs after this file's
+    // last describe, but leave the world as we found it).
+    vi.doUnmock('../src/lib/sandbox');
+    vi.resetModules();
+  });
+});

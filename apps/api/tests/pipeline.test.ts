@@ -8,6 +8,10 @@ import {
   canWithdraw,
   canReopen,
   statusAfter,
+  AI_PIPELINE_STAGES,
+  isAiPipelineStage,
+  canTransitionAiPipeline,
+  aiPipelineTransitionsFrom,
 } from '../src/rules/pipeline';
 
 describe('stage validation', () => {
@@ -95,5 +99,92 @@ describe('status actions', () => {
     expect(statusAfter('REJECT')).toBe('REJECTED');
     expect(statusAfter('WITHDRAW')).toBe('WITHDRAWN');
     expect(statusAfter('REOPEN')).toBe('ACTIVE');
+  });
+});
+
+// ─── AI-loop pipeline (PLAN.md §4 step 7) — rules-level future flow ───────────
+
+describe('enum-backed stages (constraint until the Stage enum migration)', () => {
+  it('STAGES stays the Prisma Stage enum truth — no TEST/REVIEW until the next migration', () => {
+    // applications.schema.ts zod enums reject TEST/REVIEW today; the rules
+    // module must not advertise stages the database cannot store.
+    expect(STAGES).toHaveLength(6);
+    expect(STAGES).not.toContain('TEST');
+    expect(STAGES).not.toContain('REVIEW');
+    expect(STAGES).toContain('ASSESSMENT');
+    expect(isStage('TEST')).toBe(false);
+    expect(isStage('REVIEW')).toBe(false);
+  });
+});
+
+describe('AI pipeline stage validation', () => {
+  it('recognizes every AI pipeline stage name', () => {
+    for (const stage of AI_PIPELINE_STAGES) {
+      expect(isAiPipelineStage(stage)).toBe(true);
+    }
+  });
+
+  it('keeps the PLAN §4 step 7 order: Applied → Test → Review → Interview → Offer → Hired', () => {
+    const chain = ['APPLIED', 'TEST', 'REVIEW', 'INTERVIEW', 'OFFER', 'HIRED'];
+    const indexes = chain.map((s) => AI_PIPELINE_STAGES.indexOf(s as (typeof AI_PIPELINE_STAGES)[number]));
+    for (let i = 1; i < indexes.length; i++) {
+      expect(indexes[i]).toBeGreaterThan(indexes[i - 1]!); // strictly board-ordered
+    }
+    expect(AI_PIPELINE_STAGES).toHaveLength(7);
+  });
+
+  it('supersedes ASSESSMENT and rejects unknown values', () => {
+    expect(isAiPipelineStage('ASSESSMENT')).toBe(false); // superseded by TEST
+    expect(isAiPipelineStage('TEST ')).toBe(false);
+    expect(isAiPipelineStage('hired')).toBe(false);
+    expect(isAiPipelineStage(null)).toBe(false);
+  });
+});
+
+describe('AI pipeline stage transitions', () => {
+  it('allows the standard forward path', () => {
+    expect(canTransitionAiPipeline('APPLIED', 'TEST')).toBe(true);
+    expect(canTransitionAiPipeline('TEST', 'REVIEW')).toBe(true);
+    expect(canTransitionAiPipeline('REVIEW', 'INTERVIEW')).toBe(true);
+    expect(canTransitionAiPipeline('INTERVIEW', 'OFFER')).toBe(true);
+    expect(canTransitionAiPipeline('OFFER', 'HIRED')).toBe(true);
+  });
+
+  it('keeps SCREENING as an optional human pre-screen around the test', () => {
+    expect(canTransitionAiPipeline('APPLIED', 'SCREENING')).toBe(true);
+    expect(canTransitionAiPipeline('SCREENING', 'TEST')).toBe(true);
+    expect(canTransitionAiPipeline('SCREENING', 'INTERVIEW')).toBe(true);
+  });
+
+  it('allows moving backwards', () => {
+    expect(canTransitionAiPipeline('SCREENING', 'APPLIED')).toBe(true);
+    expect(canTransitionAiPipeline('TEST', 'SCREENING')).toBe(true);
+    expect(canTransitionAiPipeline('REVIEW', 'SCREENING')).toBe(true);
+    expect(canTransitionAiPipeline('INTERVIEW', 'REVIEW')).toBe(true);
+    expect(canTransitionAiPipeline('OFFER', 'INTERVIEW')).toBe(true);
+  });
+
+  it('rejects invalid jumps', () => {
+    expect(canTransitionAiPipeline('APPLIED', 'INTERVIEW')).toBe(false); // the test IS the entry gate
+    expect(canTransitionAiPipeline('APPLIED', 'REVIEW')).toBe(false);
+    expect(canTransitionAiPipeline('APPLIED', 'OFFER')).toBe(false);
+    expect(canTransitionAiPipeline('TEST', 'INTERVIEW')).toBe(false); // must pass through REVIEW
+    expect(canTransitionAiPipeline('TEST', 'OFFER')).toBe(false);
+    expect(canTransitionAiPipeline('REVIEW', 'OFFER')).toBe(false);
+    expect(canTransitionAiPipeline('REVIEW', 'TEST')).toBe(false); // a re-test is a NEW session, not a move
+    expect(canTransitionAiPipeline('INTERVIEW', 'HIRED')).toBe(false); // must pass through OFFER
+  });
+
+  it('never allows staying in the same stage', () => {
+    for (const stage of AI_PIPELINE_STAGES) {
+      expect(canTransitionAiPipeline(stage, stage)).toBe(false);
+    }
+  });
+
+  it('treats HIRED as terminal', () => {
+    expect(aiPipelineTransitionsFrom('HIRED')).toEqual([]);
+    for (const stage of AI_PIPELINE_STAGES) {
+      expect(canTransitionAiPipeline('HIRED', stage)).toBe(false);
+    }
   });
 });

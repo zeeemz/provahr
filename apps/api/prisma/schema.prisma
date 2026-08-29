@@ -47,6 +47,13 @@ enum EmploymentType {
   INTERNSHIP
 }
 
+// The AI-loop flow (PLAN §4 step 7) renames the board to
+// Applied → Test → Review → Interview → Offer → Hired. TEST/REVIEW are NOT
+// enum values yet: enum extension needs a migration, and it lands with the
+// NEXT one after 0001_init (not folded into init — existing dev databases
+// were built via `db push`). Until then the future flow lives rules-level in
+// src/rules/pipeline.ts (AI_PIPELINE_STAGES) and this enum is the truth every
+// route validates against (zod: modules/applications/applications.schema.ts).
 enum Stage {
   APPLIED
   SCREENING
@@ -104,6 +111,13 @@ enum QueueStatus {
 }
 
 // ─── Models ──────────────────────────────────────────────────────────────────
+
+// MIGRATION-MANAGED INDEX (not expressible in Prisma schema — documented
+// drift risk): migration 0001_init appends
+//   CREATE UNIQUE INDEX "companies_singleton_idx" ON "companies" ((true));
+// enforcing the single-company invariant at the DB level (QA wave-1 F2).
+// `prisma db push` and future `migrate dev` diffs do NOT know about it —
+// recreating a database without running migrations loses this constraint.
 
 model Company {
   id        String   @id @default(cuid())
@@ -291,12 +305,14 @@ enum LlmProviderKind {
 }
 
 /// Admin-configured LLM provider credentials. Exactly one row is active at a
-/// time — enforced by the admin service's deactivate-then-activate transaction.
-/// KNOWN LIMITATION (QA wave-2 F3): concurrent admin mutations can race under
-/// READ COMMITTED into two active rows; readers pick deterministically (oldest
-/// first). A partial unique index (`ON llm_providers ((true)) WHERE isActive`)
-/// lands with the first committed migration — as does the Company singleton
-/// constraint (PROGRESS.md wave-1 F2).
+/// time — enforced by the admin service's deactivate-then-activate transaction
+/// AND, since migration 0001_init, by a migration-managed partial unique index
+///   CREATE UNIQUE INDEX "llm_providers_single_active_idx"
+///     ON "llm_providers" ((true)) WHERE "isActive";
+/// closing the QA wave-2 F3 READ COMMITTED race. That index is NOT
+/// expressible in Prisma schema language — documented drift risk: `db push`
+/// and future `migrate dev` diffs do not know about it; a database recreated
+/// without migrations loses it (the Company singleton note above applies too).
 ///
 /// `apiKeyEncrypted` is an AES-256-GCM secret box produced by src/lib/crypto.ts
 /// (format: `v1.<iv>.<authTag>.<ciphertext>`, base64url segments) — the raw key
@@ -377,10 +393,13 @@ model TestBlueprint {
 /// of usefulness.
 ///
 /// `isActive`: one active pool per job, enforced at the service level inside
-/// the seal transaction — same KNOWN RACE as LlmProvider.isActive (QA wave-2
-/// F3): concurrent seal+reseal under READ COMMITTED can briefly leave two
-/// active rows. Readers pick deterministically (newest `sealedAt` first); the
-/// partial unique index lands with the same migration wave.
+/// the seal transaction — and, since migration 0001_init, by a
+/// migration-managed partial unique index (the QA wave-2/wave-4 race backstop):
+///   CREATE UNIQUE INDEX "sealed_pools_single_active_idx"
+///     ON "sealed_question_pools" ("jobId") WHERE "isActive";
+/// (Per-JOB uniqueness, not global — each job owns its pool generation.)
+/// Same drift-risk caveat as LlmProvider/Company above: the index lives only
+/// in the migration; `db push` and future `migrate dev` diffs ignore it.
 model SealedQuestionPool {
   id              String   @id @default(cuid())
   jobId           String

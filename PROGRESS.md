@@ -3,13 +3,15 @@
 > **🔧 RESUME HERE (reboot/recovery checkpoint)**
 > 1. Repo is a git repository: wave boundaries are commits — `git log --oneline`
 >    to orient; commit after every wave close (user directive: survive reboots).
-> 2. Last completed: **wave 9a / Phase 6 WEB** (React portal, gates green).
->    Wave 8 closed before it (evaluation wired, void race fixed).
-> 3. In flight: **wave 10 / Phases 9-10 — the closer** (Agent FINAL): TEST/REVIEW
->    pipeline stages, first committed migration (init + singleton indexes +
->    VoidedItem FK), DATA_MODEL rewrite, README final state, CODE-format
->    evaluation test. Then wave 9b: Expo mobile (apps/mobile), then final
->    commit + completion audit.
+> 2. Last completed: **wave 10 / Phases 9-10 CLOSED** (stages, migration w/
+>    singletons, DATA_MODEL, README, CODE test — 386+16 ×2).
+> 3. In flight: **wave 9b / Phase 6b — Expo mobile** (Agent MOBILE,
+>    apps/mobile). After gate+QA-lite: final completion audit vs PLAN §11,
+>    final commit.
+> 4. Post-MVP backlog (documented, not blocking): Stage-enum migration,
+>    VoidedItem FK, live-docker sandbox verification, shared limiter store,
+>    data variants (completes PLAN §5.2 mechanism 2), error-log redaction,
+>    manual redirect loop.
 > 4. Open test-sweep items: CODE-format evaluation test; CI first-run of the
 >    integration tier.
 > 5. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc --noEmit
@@ -61,8 +63,8 @@
 | 6 | Candidate mobile app (Expo): swipe gestures, signal parity | ⬜ wave 9b (after wave 10) |
 | 7 | Sandbox executor (Docker) + hidden test cases | ✅ complete (2026-08-29, wave 7 QA-closed; live-docker smoke deferred to Phase 10) |
 | 8 | LLM evaluation pipeline + HR X-ray + void | ✅ complete (2026-08-29, wave 8 QA-closed) |
-| 9 | Pipeline integration + dashboard + flags | ⬜ pending |
-| 10 | Hardening: rate limits, encryption, retention, docs, deploy | ⬜ pending |
+| 9 | Pipeline integration + dashboard + flags | ✅ complete (rules-level, wave 10; Stage-enum extension = next migration) |
+| 10 | Hardening: rate limits, encryption, retention, docs, deploy | ✅ core complete (wave 10): first committed migration w/ 3 singleton indexes, DATA_MODEL rewritten, README final; remaining items tracked in §7 |
 
 ## 3. Phase 0 subtasks
 
@@ -338,6 +340,16 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-08-29 (wave 10 / Phases 9-10 CLOSED — the closer)** — AI pipeline
+  stages (rules-level; enum migration deliberately next), **first committed
+  migration** (523-line init + 3 singleton indexes — the agent corrected the
+  pool index to per-jobId, the literal global form would break multi-job
+  installs), DATA_MODEL fully rewritten (banner debt paid), README final
+  state, the owed CODE-format evaluation test (FakeExecutor via doMock —
+  covers SANDBOX degradation, no docker needed). Installers/compose verified
+  to take the migrate-deploy branch. Gate: typecheck clean, **386 + 16
+  CI-gated × 2**. Remaining: wave 9b mobile, then completion audit.
+  *(main + Agent FINAL)*
 - **2026-08-29 (wave 9a / Phase 6 WEB integrated)** — React portal landed
   (~4.3k LOC): candidate loop (board → apply → one-time link UX with copy +
   unrecoverable warning → consent → Swipe-MCQ/MCQ/WRITTEN/CODE test UI with
