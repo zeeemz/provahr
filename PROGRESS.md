@@ -1,17 +1,14 @@
 # ProvaHR — Progress Tracker
 
 > **🔧 RESUME HERE (reboot/recovery checkpoint)**
-> 1. Repo is a git repository: wave boundaries are commits — `git log --oneline`
->    to orient; commit after every wave close (user directive: survive reboots).
-> 2. Last completed: **wave 10 / Phases 9-10 CLOSED** (stages, migration w/
->    singletons, DATA_MODEL, README, CODE test — 386+16 ×2).
-> 3. In flight: **wave 9b / Phase 6b — Expo mobile** (Agent MOBILE,
->    apps/mobile). After gate+QA-lite: final completion audit vs PLAN §11,
->    final commit.
-> 4. Post-MVP backlog (documented, not blocking): Stage-enum migration,
+> 1. Repo is a git repository: wave boundaries are commits — `git log --oneline`.
+> 2. **STATUS: ALL PLAN §11 PHASES (0-10) COMPLETE.** MVP shipped: API
+>    (386+16 tests), worker, web portal, Expo mobile, compose deploy,
+>    installers + wizard, Keycloak RBAC, the full AI-native loop.
+> 3. Post-MVP backlog (§7 below + README roadmap): Stage-enum migration,
 >    VoidedItem FK, live-docker sandbox verification, shared limiter store,
->    data variants (completes PLAN §5.2 mechanism 2), error-log redaction,
->    manual redirect loop.
+>    data variants (PLAN §5.2 mechanism 2 completion), error-log redaction,
+>    manual redirect loop, screenshot retention window/erasure endpoint.
 > 4. Open test-sweep items: CODE-format evaluation test; CI first-run of the
 >    integration tier.
 > 5. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc --noEmit
@@ -60,7 +57,7 @@
 | 3 | Blueprint editor + sample preview + sealed pool (+re-seal) | ✅ complete (2026-08-29, wave 4) |
 | 4 | Public board, apply flow, one-time test links | ✅ complete (2026-08-29, wave 5 — QA-closed) |
 | 5 | Candidate test portal (web): Swipe MCQ, review pass, signals | ✅ API engine complete (2026-08-29, wave 6 — UI in Phase 6 wave) |
-| 6 | Candidate mobile app (Expo): swipe gestures, signal parity | ⬜ wave 9b (after wave 10) |
+| 6 | Candidate mobile app (Expo): swipe gestures, signal parity | ✅ complete (2026-08-29, wave 9b — tsc ×2; no emulator on dev box, stated) |
 | 7 | Sandbox executor (Docker) + hidden test cases | ✅ complete (2026-08-29, wave 7 QA-closed; live-docker smoke deferred to Phase 10) |
 | 8 | LLM evaluation pipeline + HR X-ray + void | ✅ complete (2026-08-29, wave 8 QA-closed) |
 | 9 | Pipeline integration + dashboard + flags | ✅ complete (rules-level, wave 10; Stage-enum extension = next migration) |
@@ -340,6 +337,14 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-08-29 (ALL PHASES COMPLETE — wave 9b mobile)** — Expo candidate app
+  landed: PanResponder swipe deck (LIKE/DISLIKE flings + tap-toggle fallback +
+  replay chips), full session flow with clock/auto-submit/grace handling,
+  AppState-based signal parity (APP_BACKGROUND ≙ TAB_SWITCH, flush-on-
+  background), LARGE_PASTE approximation via no-keystroke insertion. Gates:
+  mobile tsc ×2 zero errors; API suite untouched (386+16). **PLAN §11 phases
+  0-10 all complete.** Post-MVP backlog remains tracked in §7. *(main + Agent
+  MOBILE)*
 - **2026-08-29 (wave 10 / Phases 9-10 CLOSED — the closer)** — AI pipeline
   stages (rules-level; enum migration deliberately next), **first committed
   migration** (523-line init + 3 singleton indexes — the agent corrected the
