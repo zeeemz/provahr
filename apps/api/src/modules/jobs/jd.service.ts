@@ -24,7 +24,7 @@ const FETCHED_TEXT_CAP = 60_000;
 
 /** Company-scoped job fetch for the JD endpoints — 404 for other companies' jobs. */
 async function getScopedJob(user: AuthUser, jobId: string) {
-  const job = await prisma.job.findFirst({ where: { id: jobId, companyId: user.companyId } });
+  const job = await prisma.job.findFirst({ where: { id: jobId, companyId: user.companyId! } });
   if (!job) throw new AppError(404, 'Job not found', 'NOT_FOUND');
   return job;
 }
@@ -56,7 +56,7 @@ export async function createIntake(
   const { jobId } = await prisma.$transaction(async (tx) => {
     const job = await tx.job.create({
       data: {
-        companyId: user.companyId,
+        companyId: user.companyId!,
         title: 'Draft role',
         department: 'Unassigned',
         roleFamily: 'OTHER',

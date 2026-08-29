@@ -11,7 +11,7 @@ export async function listJobs(
   user: AuthUser,
   filters: { status?: JobStatus; roleFamily?: string; q?: string } = {},
 ) {
-  const where: Prisma.JobWhereInput = { companyId: user.companyId };
+  const where: Prisma.JobWhereInput = { companyId: user.companyId! };
   if (filters.status) where.status = filters.status;
   if (filters.roleFamily) where.roleFamily = filters.roleFamily as Prisma.EnumRoleFamilyFilter['equals'];
   if (filters.q) {
@@ -36,7 +36,7 @@ export async function listJobs(
 
 export async function getJob(user: AuthUser, jobId: string) {
   const job = await prisma.job.findFirst({
-    where: { id: jobId, companyId: user.companyId },
+    where: { id: jobId, companyId: user.companyId! },
     include: {
       _count: {
         select: {
@@ -51,7 +51,7 @@ export async function getJob(user: AuthUser, jobId: string) {
 
 export async function createJob(user: AuthUser, input: CreateJobInput) {
   return prisma.job.create({
-    data: { ...input, companyId: user.companyId },
+    data: { ...input, companyId: user.companyId! },
   });
 }
 

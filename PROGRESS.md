@@ -13,6 +13,16 @@
 >    sweep incl. BIBLE).
 > 4. Live stack (founder testing): compose up at :4000/:5173; DB currently
 >    FRESH (wizard v2 unlocked) — reset again after V2-1 lands.
+> 5. **Process rules (founder directives 2026-08-29):** (a) docs sync is part
+>    of EVERY v2 wave's DoD — no end-loaded doc sweep (V2-5 becomes the final
+>    reconciliation, not the only update); (b) a live E2E regression pass
+>    (compose + mock LLM + full loop) runs after each v2 wave's gate;
+>    (c) **graphify code map committed** (`graphify-out/`, 1146 nodes —
+>    regenerate at every wave gate; `python -m graphify extract apps
+>    --code-only && python -m graphify cluster-only apps`). NOTE: checkpoint
+>    0aface3 accidentally includes Agent PLATFORM's in-flight V2-1 files
+>    (schema/PLAN/migration WIP) — the V2-1 gate commit labels the real
+>    completion.
 > 4. Open test-sweep items: CODE-format evaluation test; CI first-run of the
 >    integration tier.
 > 5. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc --noEmit

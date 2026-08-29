@@ -34,11 +34,13 @@ describe('GET /setup (wizard page)', () => {
 
 describe('POST /api/setup/install', () => {
   it('rejects malformed bodies with field details', async () => {
-    const res = await request(app).post('/api/setup/install').send({ companyName: 'A' });
+    // Wizard v3 (D18): companyName is gone — the payload is the super admin's
+    // name/email/password only.
+    const res = await request(app).post('/api/setup/install').send({ adminName: 'A' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
     const paths = res.body.error.details.map((d: { path: string }) => d.path);
-    expect(paths).toContain('companyName');
+    expect(paths).toContain('adminName');
     expect(paths).toContain('adminEmail');
   });
 

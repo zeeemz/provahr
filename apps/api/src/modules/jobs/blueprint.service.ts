@@ -48,7 +48,7 @@ const POOL_OVERSHOOT = 2; // stop prompting a format at 2× its required size
 
 /** Company-scoped job fetch — 404 for other companies' jobs (jd.service pattern). */
 async function getScopedJob(user: AuthUser, jobId: string) {
-  const job = await prisma.job.findFirst({ where: { id: jobId, companyId: user.companyId } });
+  const job = await prisma.job.findFirst({ where: { id: jobId, companyId: user.companyId! } });
   if (!job) throw new AppError(404, 'Job not found', 'NOT_FOUND');
   return job;
 }

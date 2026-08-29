@@ -9,6 +9,7 @@
 // endpoint, for any role, may emit pool item content or the encrypted blob.
 
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import { createApp } from '../../src/app';
@@ -35,22 +36,42 @@ describe.skipIf(!enabled)('sealed-pool invisibility matrix (T2/T3)', () => {
     } catch (err) {
       throw new Error(`INTEGRATION_DB=1 but the test database is unreachable: ${String(err)}`);
     }
-    // Fresh company + admin via the public register path (single-company
-    // invariant means this install is now "configured").
+    // Platform bootstrap (V2-1): register bootstraps the SUPER ADMIN, then
+    // the company + its ADMIN are created through the platform API. Random
+    // per-run fixture password — no credentials in source, and the throwaway
+    // DB is dropped afterwards regardless.
+    const fixturePw = `pw-${randomUUID()}`;
     const reg = await request(app)
       .post('/api/auth/register')
       .send({
-        companyName: `Leak Matrix Test ${Date.now()}`,
-        name: 'Leak Matrix Admin',
-        email: `leakmatrix+${Date.now()}@provahr.test`,
-        password: 'password123',
+        name: 'Leak Matrix Super Admin',
+        email: `leakmatrix-super+${Date.now()}@provahr.test`,
+        password: fixturePw,
       });
     expect(reg.status).toBe(201);
+    const superLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: reg.body.user.email, password: fixturePw });
+    expect(superLogin.body.token).toBeTruthy();
+
+    const company = await request(app)
+      .post('/api/platform/companies')
+      .set('Authorization', `Bearer ${superLogin.body.token}`)
+      .send({
+        name: `Leak Matrix Test ${Date.now()}`,
+        firstAdmin: {
+          name: 'Leak Matrix Admin',
+          email: `leakmatrix+${Date.now()}@provahr.test`,
+          password: fixturePw,
+        },
+      });
+    expect(company.status).toBe(201);
+    companyId = company.body.company.id;
+
     const login = await request(app)
       .post('/api/auth/login')
-      .send({ email: reg.body.user.email, password: 'password123' });
+      .send({ email: company.body.admin.email, password: fixturePw });
     token = login.body.token;
-    companyId = login.body.user.companyId ?? '';
     expect(token).toBeTruthy();
 
     // Approved-JD job + blueprint + an ACTIVE sealed pool with a canary item.
@@ -97,12 +118,15 @@ describe.skipIf(!enabled)('sealed-pool invisibility matrix (T2/T3)', () => {
     await prisma.$disconnect();
   });
 
-  const auth = { Authorization: `Bearer ${token}` };
+  // Built at CALL time — a plain object here would capture the empty token
+  // at collection time, before beforeAll logs in (latent bug caught by this
+  // suite's first real execution).
+  const auth = () => ({ Authorization: `Bearer ${token}` });
 
   // The matrix: every blueprint/pool route, for the admin role (recruiter has
   // identical access; anonymous is 401 and covered in the unit tier).
   const routes: Array<[string, string, string]> = [
-    ['PUT', '/api/jobs/%ID/blueprint', JSON.stringify({ sections: [{ topics: ['x'], formats: { MCQ: 1 } }], timeLimitMin: 30 })],
+    ['PUT', '/api/jobs/%ID/blueprint', JSON.stringify({ sections: [{ topics: ['xx'], formats: { MCQ: 1 } }], timeLimitMin: 30 })],
     ['GET', '/api/jobs/%ID/blueprint', ''],
     ['POST', '/api/jobs/%ID/blueprint/samples', '{}'],
     ['GET', '/api/jobs/%ID/blueprint/samples', ''],
@@ -117,7 +141,7 @@ describe.skipIf(!enabled)('sealed-pool invisibility matrix (T2/T3)', () => {
     it('never emits pool item content or the encrypted blob', async () => {
       const res = await request(app)
         [method.toLowerCase() as 'get' | 'put' | 'post'](path())
-        .set(auth)
+        .set(auth())
         .set('Content-Type', 'application/json')
         .send(body === '' ? undefined : body);
       const serialized = JSON.stringify(res.body ?? {});
@@ -129,20 +153,27 @@ describe.skipIf(!enabled)('sealed-pool invisibility matrix (T2/T3)', () => {
     it('obeys the state machine (pool sealed ⇒ no destructive route proceeds)', async () => {
       const res = await request(app)
         [method.toLowerCase() as 'get' | 'put' | 'post'](path())
-        .set(auth)
+        .set(auth())
         .set('Content-Type', 'application/json')
         .send(body === '' ? undefined : body);
       if (method === 'PUT' || (method === 'POST' && path().endsWith('/pool/seal'))) {
         expect(res.status).toBe(409);
         expect(res.body.error.code).toBe('POOL_SEALED');
       } else {
-        expect([200, 201, 202]).toContain(res.status);
+        // Provider-requiring POSTs (samples/reseal) correctly 503 NO_PROVIDER
+        // in this matrix DB — no LLM provider is configured here — which is
+        // still proof the route executed past the pool guard.
+        if (res.status === 503) {
+          expect(res.body.error.code).toBe('NO_PROVIDER');
+        } else {
+          expect([200, 201, 202]).toContain(res.status);
+        }
       }
     });
   });
 
   it('GET pool returns exactly the four public fields', async () => {
-    const res = await request(app).get(`/api/jobs/${jobId}/pool`).set(auth);
+    const res = await request(app).get(`/api/jobs/${jobId}/pool`).set(auth());
     expect(res.status).toBe(200);
     expect(Object.keys(res.body.pool).sort()).toEqual(['hasActivePool', 'itemCount', 'sealedAt', 'version']);
     expect(res.body.pool.itemCount).toBe(1);
@@ -150,7 +181,7 @@ describe.skipIf(!enabled)('sealed-pool invisibility matrix (T2/T3)', () => {
   });
 
   it('GET samples shows preview items by design (sample canary visible, pool canary never)', async () => {
-    const res = await request(app).get(`/api/jobs/${jobId}/blueprint/samples`).set(auth);
+    const res = await request(app).get(`/api/jobs/${jobId}/blueprint/samples`).set(auth());
     expect(res.status).toBe(200);
     expect(JSON.stringify(res.body)).toContain(SAMPLE_CANARY);
     expect(JSON.stringify(res.body)).not.toContain(POOL_CANARY);

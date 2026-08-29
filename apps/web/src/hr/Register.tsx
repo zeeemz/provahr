@@ -1,5 +1,6 @@
-// Company signup — POST /api/auth/register (single-company install: 409s once
-// a company exists; the first-run wizard at /setup is the bootstrap path).
+// Platform bootstrap — POST /api/auth/register creates the install's SUPER
+// ADMIN (D18: no company; tenants come from the platform console). 409s once
+// a super admin exists — the first-run wizard at /setup is the guided path.
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -10,7 +11,6 @@ export default function Register(): JSX.Element {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const [companyName, setCompanyName] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +23,6 @@ export default function Register(): JSX.Element {
     setError(null);
     try {
       await register({
-        companyName: companyName.trim(),
         name: name.trim(),
         email: email.trim(),
         password,
@@ -39,15 +38,13 @@ export default function Register(): JSX.Element {
   return (
     <main className="page narrow">
       <div className="card">
-        <h1>Create workspace</h1>
+        <h1>Create the platform</h1>
         <p className="sub">
-          Creates this install&apos;s company and your admin account. One company per install —
-          if it is already configured, <Link to="/login">sign in</Link> instead.
+          Creates this install&rsquo;s <strong>super admin</strong> — the account that owns companies
+          and platform settings. Only works on an empty install; afterwards the{' '}
+          <Link to="/login">sign-in</Link> page is the way in.
         </p>
         <form onSubmit={(e) => void submit(e)}>
-          <label className="field" htmlFor="rg-company">Company name</label>
-          <input id="rg-company" type="text" required minLength={2} maxLength={120} value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
-
           <label className="field" htmlFor="rg-name">Your name</label>
           <input id="rg-name" type="text" required minLength={2} maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
 
@@ -60,7 +57,7 @@ export default function Register(): JSX.Element {
 
           {error !== null && <p className="form-error">{error}</p>}
           <p>
-            <button type="submit" disabled={busy}>{busy ? 'Creating…' : 'Create workspace'}</button>
+            <button type="submit" disabled={busy}>{busy ? 'Creating…' : 'Create platform'}</button>
           </p>
         </form>
       </div>

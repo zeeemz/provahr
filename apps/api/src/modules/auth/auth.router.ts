@@ -1,23 +1,30 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../lib/http';
 import { requireAuth } from '../../middleware/auth';
-import { env } from '../../env';
 import { register, login } from './auth.service';
 import { registerSchema, loginSchema } from './auth.schema';
+import { getAuthMode } from '../platform/settings.service';
 
 const router = Router();
 
 /**
- * Which auth mode this install runs in (D15). Public and boolean-only —
- * clients pick login UX from it; the admin settings page explains it. The
- * mode itself is environment-configured (see docs/RBAC.md), so this is a
- * readout, not a toggle.
+ * Which auth mode this install runs in (D15/D19). Public and boolean-only —
+ * clients pick login UX from it; the wizard's finish step and the portal
+ * settings card read it too. Since V2-1 the mode is DATA: the platform
+ * singleton row (PlatformSettings.authMode) wins, with the boot-time env
+ * (OIDC_ENABLED) as fallback when no row/value exists. The read degrades to
+ * the env fallback rather than 500 — the login page must never hard-fail on
+ * it. The super-admin portal switches it via PUT /api/platform/settings.
  */
-router.get('/mode', (_req, res) => {
-  res.json({ mode: env.OIDC_ENABLED ? 'oidc' : 'local' });
-});
+router.get('/mode', asyncHandler(async (_req, res) => {
+  res.json({ mode: await getAuthMode() });
+}));
 
-/** Create a company workspace + first admin. */
+/**
+ * Bootstrap the PLATFORM super admin (D18) — no company. 409s once a super
+ * admin exists; the first-run wizard (POST /api/setup/install) is the
+ * guided path over this same service function.
+ */
 router.post(
   '/register',
   asyncHandler(async (req, res) => {

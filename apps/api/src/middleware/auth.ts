@@ -24,11 +24,13 @@ declare global {
  *
  * - Local mode (`OIDC_ENABLED=false`, the dev default): verifies the local
  *   JWT and loads the user from the database, so disabled or deleted
- *   accounts stop working immediately.
+ *   accounts stop working immediately. A `SUPER_ADMIN` user attaches with
+ *   `companyId` null (PLAN.md §12 D18).
  * - Keycloak mode (`OIDC_ENABLED=true`): verifies the OIDC access token
  *   against the issuer's JWKS and provisions/syncs a local user row.
  *
- * Attach after this middleware with `requireRole(...)`.
+ * Attach after this middleware with `requireRole(...)` for company routes,
+ * or the platform module's `requireSuperAdmin` for platform routes.
  */
 export const requireAuth: RequestHandler = (req, _res, next) => {
   const header = req.headers.authorization;
@@ -58,6 +60,23 @@ function localAuth(req: Request, token: string, next: NextFunction): void {
   prisma.user
     .findUnique({ where: { id: userId }, include: { company: true } })
     .then((user) => {
+      // SUPER_ADMIN is platform-level (PLAN.md §12 D18): it carries no company
+      // and authenticates with companyId null. Every other role must belong to
+      // a company — a company-less row of those roles is inert (401), which is
+      // how company-scoped routes keep 401/403-ing super admins without any
+      // per-service edits: requireRole simply never admits SUPER_ADMIN.
+      if (user && user.role === 'SUPER_ADMIN') {
+        req.user = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          companyId: user.companyId,
+          companyName: user.company?.name ?? null,
+        };
+        next();
+        return;
+      }
       if (!user || !user.company) {
         next(new AppError(401, 'Account not found', 'UNAUTHENTICATED'));
         return;
@@ -91,8 +110,11 @@ function oidcAuth(req: Request, token: string, next: NextFunction): void {
         email: user.email,
         name: user.name,
         role: user.role,
+        // OIDC users are company members (V2-1 keeps single-realm Keycloak;
+        // per-company issuers arrive with V2-3), so a company is guaranteed
+        // here — but the typing stays nullable like the column it mirrors.
         companyId: user.companyId,
-        companyName: user.company.name,
+        companyName: user.company?.name ?? null,
       };
       next();
     })
@@ -101,13 +123,14 @@ function oidcAuth(req: Request, token: string, next: NextFunction): void {
 
 /**
  * Creates or updates the local user row for a verified token. The user must
- * belong to the install's single company, which only exists after setup.
- * Keycloak is the source of truth for name and role while OIDC is enabled.
+ * belong to a company, which only exists after the platform super admin has
+ * created one. Keycloak is the source of truth for name and role while OIDC
+ * is enabled.
  */
 async function provisionOidcUser(
   info: OidcTokenInfo,
   role: ProvaRole,
-): Promise<{ id: string; email: string; name: string; role: UserRole; companyId: string; company: { name: string } }> {
+): Promise<{ id: string; email: string; name: string; role: UserRole; companyId: string | null; company: { name: string } | null }> {
   const company = await prisma.company.findFirst();
   if (!company) {
     throw new AppError(503, 'Setup not completed — finish the /setup wizard first', 'SETUP_REQUIRED');

@@ -12,6 +12,7 @@ import publicRouter from './modules/public/public.router';
 import statsRouter from './modules/stats/stats.router';
 import setupRouter, { WIZARD_HTML } from './modules/setup/setup.router';
 import adminRouter from './modules/admin/llm-providers.router';
+import platformRouter from './modules/platform/platform.router';
 import { notFoundHandler, errorHandler } from './middleware/error';
 
 export function createApp() {
@@ -57,6 +58,8 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRouter);
+  // Platform console (V2-1): super-admin-gated tenant + settings management.
+  app.use('/api/platform', platformRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/jobs', jobsRouter);

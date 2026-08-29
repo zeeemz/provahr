@@ -48,8 +48,8 @@ export default function Login(): JSX.Element {
           </p>
         </form>
         <p className="hint">
-          First run? <Link to="/register">Create the first company</Link> (only works on an empty
-          install — after that, the API&apos;s <code>/setup</code> wizard locks itself).
+          First run? <Link to="/register">Create the platform super admin</Link> (only works on an
+          empty install — after that, the API&apos;s <code>/setup</code> wizard locks itself).
         </p>
       </div>
     </main>

@@ -32,7 +32,7 @@ export async function listForJob(
   jobId: string,
   filters: { stage?: Stage; status?: ApplicationStatus } = {},
 ) {
-  const job = await prisma.job.findFirst({ where: { id: jobId, companyId: user.companyId } });
+  const job = await prisma.job.findFirst({ where: { id: jobId, companyId: user.companyId! } });
   if (!job) throw new AppError(404, 'Job not found', 'NOT_FOUND');
 
   const where: Prisma.ApplicationWhereInput = { jobId, ...filters };

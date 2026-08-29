@@ -8,6 +8,10 @@
 //            application detail + X-ray.
 // Admin (/app/admin/*): LLM providers · team & RBAC · authentication — ADMIN
 //            only (double-gated: nav links + RequireAuth requireRole).
+// Platform (/app/platform): tenants + platform settings — SUPER_ADMIN only
+//            (D18). Super admins own no company, so the company-scoped nav
+//            (dashboard/roles/admin) is hidden for them and /app lands on
+//            the platform console instead.
 
 import { NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, RequireAuth, useAuth } from './auth/AuthContext';
@@ -21,12 +25,14 @@ import Register from './hr/Register';
 import ProvidersPage from './admin/ProvidersPage';
 import TeamPage from './admin/TeamPage';
 import SettingsPage from './admin/SettingsPage';
+import PlatformPage from './platform/PlatformPage';
 import JobBoard from './public/JobBoard';
 import JobDetail from './public/JobDetail';
 import TestFlow from './public/TestFlow';
 import type { Role } from './api/types';
 
 const ADMIN_ONLY: readonly Role[] = ['ADMIN'];
+const SUPER_ADMIN_ONLY: readonly Role[] = ['SUPER_ADMIN'];
 
 export default function App(): JSX.Element {
   return (
@@ -40,7 +46,12 @@ export default function App(): JSX.Element {
           <Route path="/register" element={<Register />} />
         </Route>
         <Route path="/app" element={<RequireAuth><HrLayout /></RequireAuth>}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<AppIndex />} />
+          <Route path="platform" element={
+            <RequireAuth requireRole={SUPER_ADMIN_ONLY}>
+              <PlatformPage />
+            </RequireAuth>
+          } />
           <Route path="jobs" element={<JobsPage />} />
           <Route path="jobs/:id" element={<JobConsole />} />
           <Route path="jobs/:id/pipeline" element={<Pipeline />} />
@@ -99,6 +110,15 @@ function PublicLayout(): JSX.Element {
   );
 }
 
+/**
+ * /app landing: the platform super admin (no company) lands on the platform
+ * console; everyone else on the company dashboard.
+ */
+function AppIndex(): JSX.Element {
+  const { user } = useAuth();
+  return user !== null && user.role === 'SUPER_ADMIN' ? <PlatformPage /> : <Dashboard />;
+}
+
 function HrLayout(): JSX.Element {
   return (
     <>
@@ -118,33 +138,46 @@ function AppHeader(): JSX.Element {
         </NavLink>
         {user !== null && (
           <nav>
-            <NavLink to="/app" className={({ isActive }) => (isActive ? 'active' : undefined)}>
-              Dashboard
-            </NavLink>
-            <NavLink to="/app/jobs" className={({ isActive }) => (isActive ? 'active' : undefined)}>
-              Roles
-            </NavLink>
-            {user.role === 'ADMIN' && (
+            {user.role === 'SUPER_ADMIN' ? (
+              // Super admins own no company (D18): company-scoped links stay
+              // hidden — their whole console is the platform one.
+              <NavLink
+                to="/app/platform"
+                className={({ isActive }) => (isActive ? 'active' : undefined)}
+              >
+                Platform
+              </NavLink>
+            ) : (
               <>
-                <span className="nav-group-label">Admin</span>
-                <NavLink
-                  to="/app/admin/providers"
-                  className={({ isActive }) => (isActive ? 'active' : undefined)}
-                >
-                  Providers
+                <NavLink to="/app" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                  Dashboard
                 </NavLink>
-                <NavLink
-                  to="/app/admin/team"
-                  className={({ isActive }) => (isActive ? 'active' : undefined)}
-                >
-                  Team
+                <NavLink to="/app/jobs" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                  Roles
                 </NavLink>
-                <NavLink
-                  to="/app/admin/settings"
-                  className={({ isActive }) => (isActive ? 'active' : undefined)}
-                >
-                  Auth
-                </NavLink>
+                {user.role === 'ADMIN' && (
+                  <>
+                    <span className="nav-group-label">Admin</span>
+                    <NavLink
+                      to="/app/admin/providers"
+                      className={({ isActive }) => (isActive ? 'active' : undefined)}
+                    >
+                      Providers
+                    </NavLink>
+                    <NavLink
+                      to="/app/admin/team"
+                      className={({ isActive }) => (isActive ? 'active' : undefined)}
+                    >
+                      Team
+                    </NavLink>
+                    <NavLink
+                      to="/app/admin/settings"
+                      className={({ isActive }) => (isActive ? 'active' : undefined)}
+                    >
+                      Auth
+                    </NavLink>
+                  </>
+                )}
               </>
             )}
           </nav>

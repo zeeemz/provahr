@@ -4,7 +4,7 @@ import type { AuthUser } from '../../types';
 
 /** Dashboard aggregates for the caller's company. */
 export async function dashboard(user: AuthUser) {
-  const companyId = user.companyId;
+  const companyId = user.companyId!;
   const jobScope = { job: { companyId } };
 
   const [
@@ -46,7 +46,7 @@ export async function dashboard(user: AuthUser) {
 
   const byStage = Object.fromEntries(STAGES.map((stage) => [stage, 0])) as Record<string, number>;
   for (const row of byStageRows) {
-    byStage[row.stage] = row._count._all;
+    byStage[row.stage] = row._count?._all ?? 0;
   }
 
   return {

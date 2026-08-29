@@ -14,6 +14,7 @@ import { ApiErrorScreen, Spinner, fmtDate } from '../components/ui';
 const ROLES: readonly Role[] = ['ADMIN', 'RECRUITER', 'INTERVIEWER'];
 
 const ROLE_BADGE_CLASS: Record<Role, string> = {
+  SUPER_ADMIN: 'badge red', // platform-level (D18) — never invited from here
   ADMIN: 'badge blue',
   RECRUITER: 'badge green',
   INTERVIEWER: 'badge amber',
@@ -21,6 +22,7 @@ const ROLE_BADGE_CLASS: Record<Role, string> = {
 
 /** One sentence per role — mirrors PLAN §3 (role matrix). */
 const ROLE_EXPLAINERS: Record<Role, string> = {
+  SUPER_ADMIN: 'Platform owner (created by the install wizard): companies, platform settings — not a member of any company.',
   ADMIN: 'Runs the install: LLM providers (incl. the company’s own Azure OpenAI tenant), users, question-pool seals.',
   RECRUITER: 'Role intake (reference profile → JD), test blueprints, publishing roles, evaluations, pipeline.',
   INTERVIEWER: 'Post-test interviews and scorecards — evidence views, no job management.',

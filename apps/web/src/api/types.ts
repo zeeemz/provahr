@@ -4,7 +4,12 @@
 
 // ─── Shared vocabulary ────────────────────────────────────────────────────────
 
-export type Role = 'ADMIN' | 'RECRUITER' | 'INTERVIEWER';
+/**
+ * SUPER_ADMIN is platform-level (PLAN §12 D18): it owns the install —
+ * companies, platform settings — and belongs to no company. The other three
+ * are company-scoped tenant roles.
+ */
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'RECRUITER' | 'INTERVIEWER';
 export type JobStatus = 'DRAFT' | 'OPEN' | 'PAUSED' | 'CLOSED';
 export type Stage = 'APPLIED' | 'SCREENING' | 'ASSESSMENT' | 'INTERVIEW' | 'OFFER' | 'HIRED';
 export type ApplicationStatus = 'ACTIVE' | 'REJECTED' | 'WITHDRAWN' | 'HIRED';
@@ -56,7 +61,6 @@ export interface AuthResponse {
 }
 
 export interface RegisterInput {
-  companyName: string;
   name: string;
   email: string;
   password: string;
@@ -496,10 +500,48 @@ export interface CreateUserInput {
 
 /**
  * Which credential verifier this install runs: `local` = email + password,
- * `oidc` = Keycloak SSO. Environment-configured (OIDC_ENABLED + restart) —
- * a readout, not a toggle.
+ * `oidc` = Keycloak SSO. Since V2-1 (D19) the mode is platform DATA — the
+ * super admin switches it via PUT /api/platform/settings; the env setting is
+ * the boot-time fallback.
  */
 export type AuthMode = 'local' | 'oidc';
+
+// ─── Platform console (modules/platform — SUPER_ADMIN only, D18) ──────────────
+
+/** Row of GET /api/platform/companies — tenants with their user counts. */
+export interface PlatformCompany {
+  id: string;
+  name: string;
+  slug: string;
+  website: string | null;
+  createdAt: string;
+  userCount: number;
+}
+
+/** Optional first ADMIN created with the company (the "company wizard"). */
+export interface FirstAdminInput {
+  name: string;
+  email: string;
+  password: string;
+}
+
+/** POST /api/platform/companies body (201 → { company, admin }). */
+export interface CreateCompanyInput {
+  name: string;
+  website?: string;
+  firstAdmin?: FirstAdminInput;
+}
+
+/** PATCH /api/platform/companies/:id body. */
+export interface PatchCompanyInput {
+  name?: string;
+  website?: string | null;
+}
+
+/** GET/PUT /api/platform/settings — the runtime auth-mode switch (D19). */
+export interface PlatformSettings {
+  authMode: AuthMode;
+}
 
 // ─── Dashboard stats (modules/stats) ──────────────────────────────────────────
 

@@ -1,10 +1,8 @@
-import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../prisma';
 import { AppError } from '../../lib/http';
 import { hashPassword, verifyPassword } from '../../lib/password';
 import { signToken } from '../../lib/token';
-import { slugify } from '../../lib/slug';
 import { toPublicUser } from '../../types';
 import type { LoginInput, RegisterInput } from './auth.schema';
 
@@ -13,18 +11,23 @@ import type { LoginInput, RegisterInput } from './auth.schema';
 const DUMMY_HASH = bcrypt.hashSync('invalid-password-placeholder', 10);
 
 /**
- * Creates the install's single company workspace and its first ADMIN user in
- * one transaction, then returns a login token. Company slugs are unique; on
- * collision a short random suffix is appended.
+ * Bootstraps the PLATFORM: creates the install's SUPER_ADMIN — and nothing
+ * else (PLAN.md §12 D18). No company is created here; tenants are created by
+ * the super admin via POST /api/platform/companies.
  *
- * Single-company invariant (PLAN D6): once a company exists this 409s — the
- * first-run wizard (POST /api/setup/install) is the only bootstrap path and
- * it delegates here *before* a company exists. This guard also closes the
- * unauthenticated-register bypass around the wizard's lock (QA wave-1, F1).
+ * Setup lock semantics (moved from the old single-company invariant): the
+ * platform counts as installed once a SUPER_ADMIN exists. This 409s then, so
+ * the first-run wizard (POST /api/setup/install, which delegates here) is the
+ * only bootstrap path and the unauthenticated-register bypass around the
+ * wizard's lock stays closed (QA wave-1, F1). Race note: unlike the v1 guard
+ * (which had the companies_singleton_idx DB backstop), the lock is
+ * service-level — a deliberate trade-off so the platform may grow additional
+ * super admins later without a schema change; the install endpoint is
+ * rate-limited and only reachable pre-install.
  */
 export async function register(input: RegisterInput): Promise<{ token: string; user: ReturnType<typeof toPublicUser> }> {
-  const companyCount = await prisma.company.count();
-  if (companyCount > 0) {
+  const superAdminCount = await prisma.user.count({ where: { role: 'SUPER_ADMIN' } });
+  if (superAdminCount > 0) {
     throw new AppError(409, 'This install is already configured', 'ALREADY_INSTALLED');
   }
 
@@ -35,26 +38,14 @@ export async function register(input: RegisterInput): Promise<{ token: string; u
 
   const passwordHash = await hashPassword(input.password);
 
-  const user = await prisma.$transaction(async (tx) => {
-    let slug = slugify(input.companyName);
-    const slugTaken = await tx.company.findUnique({ where: { slug } });
-    if (slugTaken) {
-      slug = `${slug}-${randomBytes(3).toString('hex')}`;
-    }
-
-    const company = await tx.company.create({
-      data: { name: input.companyName.trim(), slug },
-    });
-
-    return tx.user.create({
-      data: {
-        email: input.email,
-        passwordHash,
-        name: input.name.trim(),
-        role: 'ADMIN',
-        companyId: company.id,
-      },
-    });
+  const user = await prisma.user.create({
+    data: {
+      email: input.email,
+      passwordHash,
+      name: input.name.trim(),
+      role: 'SUPER_ADMIN',
+      companyId: null, // platform-level (D18): super admins own no company
+    },
   });
 
   return { token: signToken(user.id), user: toPublicUser(user) };

@@ -1,9 +1,11 @@
 // Admin: authentication settings (/app/admin/settings).
 //
 // GET /api/auth/mode is a public, boolean-only readout (D15): which credential
-// verifier this install runs. The mode itself is environment-configured
-// (OIDC_ENABLED in apps/api/.env + restart) — this page explains it, it does
-// not (and cannot honestly) toggle it. Details: docs/RBAC.md.
+// verifier this install runs. Since V2-1 (D19) the mode is platform DATA with
+// an env fallback — this page explains it for company admins; the SWITCH
+// itself lives in the super-admin Platform console (Platform → Settings),
+// because auth mode is an install-wide concern, not a company one. Details:
+// docs/RBAC.md (docs sweep lands with V2-5).
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
@@ -60,9 +62,9 @@ export default function SettingsPage(): JSX.Element {
               federate through Keycloak — ProvaHR itself never sees those credentials.
             </p>
             <p className="hint">
-              To switch: set <code>OIDC_ENABLED=true</code> (plus <code>OIDC_ISSUER_URL</code>,
-              <code>OIDC_AUDIENCE</code>) in <code>apps/api/.env</code> and restart the API. Full
-              walkthrough: <code>docs/RBAC.md</code>.
+              To switch: the platform super admin flips it in the Platform console (Platform →
+              Settings) — a runtime setting now, no restart. Keycloak verification for the switch
+              lands with V2-3. Full walkthrough: <code>docs/RBAC.md</code>.
             </p>
           </div>
         </>
@@ -92,17 +94,18 @@ export default function SettingsPage(): JSX.Element {
           <div className="card">
             <h2>Switching back to local accounts</h2>
             <p className="sub mt0">
-              Set <code>OIDC_ENABLED=false</code> in <code>apps/api/.env</code> and restart the API.
-              Users provisioned from OIDC have no usable local password (a random unknown hash), so
-              they would need a password reset or a fresh invite.
+              Also a Platform-console switch. Users provisioned from OIDC have no usable local
+              password (a random unknown hash), so they would need a password reset or a fresh
+              invite.
             </p>
           </div>
         </>
       )}
 
       <p className="hint">
-        The mode is an environment setting (<code>OIDC_ENABLED</code>) applied at API startup — there
-        is deliberately no toggle here. Details and security notes: <code>docs/RBAC.md</code>.
+        The mode is an install-wide platform setting (D19) — company admins read it here; the
+        super admin switches it in the Platform console. Details and security notes:{' '}
+        <code>docs/RBAC.md</code>.
       </p>
     </main>
   );
