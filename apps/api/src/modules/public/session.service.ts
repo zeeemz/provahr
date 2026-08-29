@@ -26,6 +26,7 @@ import { z } from 'zod';
 import { prisma } from '../../prisma';
 import { AppError } from '../../lib/http';
 import { hashTestToken, isTokenShapeValid } from '../../lib/testTokens';
+import { enqueue } from '../../lib/queue';
 import { decryptSecret } from '../../lib/crypto';
 import {
   assessmentItemSchema,
@@ -467,6 +468,12 @@ export async function submitSession(token: string): Promise<{ submitted: boolean
   await prisma.testSession.update({
     where: { id: session.id },
     data: { status: 'SUBMITTED', submittedAt: new Date() },
+  });
+  // Wire the evaluation worker (QA wave-8 F1): the candidate's loop ends at
+  // "submitted"; HR's X-ray begins here. Enqueue failure must never fail the
+  // submit itself — the queue's requeueStale/manual path is the backstop.
+  await enqueue('EVALUATION', { sessionId: session.id }).catch((err: unknown) => {
+    console.error(`[session] failed to enqueue evaluation for ${session.id}: ${String(err)}`);
   });
   return { submitted: true };
 }

@@ -237,7 +237,17 @@ export async function runEvaluation(sessionId: string): Promise<void> {
       unscoredItemIds.add(question.itemId); // pool drift — never punish (see header)
       continue;
     }
-    if (voidedItemIds.has(question.itemId)) {
+    // Re-check the void ledger PER QUESTION (QA wave-8 F2): a concurrent
+    // voidItem in the API process can commit while this loop is inside a
+    // multi-second LLM/sandbox call; the snapshot taken above would then be
+    // stale and a fresh non-voided Evaluation would resurrect the voided
+    // item's score.
+    const voidedNow = await prisma.voidedItem.findUnique({
+      where: { itemId: question.itemId },
+      select: { itemId: true },
+    });
+    if (voidedNow) {
+      voidedItemIds.add(question.itemId);
       continue; // voided across sessions — no row, excluded from the mean
     }
 
@@ -697,14 +707,21 @@ export async function getXray(user: AuthUser, applicationId: string) {
 export async function voidItem(user: AuthUser, itemId: string, reason: string) {
   const appeared = await prisma.sessionQuestion.findFirst({
     where: { itemId },
-    select: { session: { select: { jobId: true } } },
+    select: { session: { select: { jobId: true, job: { select: { companyId: true } } } } },
   });
   if (!appeared) {
     throw new AppError(404, 'Item not found in any session', 'NOT_FOUND');
   }
+  // Tenancy discipline (QA wave-8 F4): same 404 as every other route — an
+  // itemId from another install's job is indistinguishable from nonexistent.
+  if (appeared.session.job.companyId !== user.companyId) {
+    throw new AppError(404, 'Item not found in any session', 'NOT_FOUND');
+  }
   const jobId = appeared.session.jobId;
 
-  return prisma.$transaction(async (tx) => {
+  let evaluationsVoided = 0;
+  const voidedSessionIds: string[] = [];
+  await prisma.$transaction(async (tx) => {
     await tx.voidedItem.upsert({
       where: { itemId },
       create: { itemId, jobId, reason, voidedBy: user.id },
@@ -715,7 +732,7 @@ export async function voidItem(user: AuthUser, itemId: string, reason: string) {
       where: { itemId },
       select: { sessionId: true },
     });
-    const sessionIds = [...new Set(affected.map((row) => row.sessionId))];
+    voidedSessionIds.push(...new Set(affected.map((row) => row.sessionId)));
 
     // Void every evaluation of this item first, so the recompute below (and
     // any concurrent reader) never mixes voided rows into a mean.
@@ -723,8 +740,11 @@ export async function voidItem(user: AuthUser, itemId: string, reason: string) {
       where: { sessionQuestion: { itemId } },
       data: { voided: true },
     });
+    evaluationsVoided = marked.count;
 
-    for (const sessionId of sessionIds) {
+    for (const sessionId of voidedSessionIds) {
+      // Immediate consistency inside the transaction: the mean excludes
+      // voided rows for any concurrent reader.
       const remaining = await tx.evaluation.findMany({
         where: { sessionQuestion: { sessionId }, voided: false },
         select: { score: true },
@@ -737,7 +757,33 @@ export async function voidItem(user: AuthUser, itemId: string, reason: string) {
         update: { totalScore },
       });
     }
-
-    return { itemId, jobId, evaluationsVoided: marked.count, sessionsRenormalized: sessionIds.length };
   });
+
+  // Full deterministic rollup AFTER the transaction commits (QA wave-8 F3):
+  // writeAssessment recomputes strengths/gaps/recommendation/flagSummary over
+  // the survivors for every affected session — stale rollup fields that still
+  // reflected the voided item would mislead HR. Best-effort in full: a
+  // failure here never undoes the void (the transaction already committed)
+  // and the next evaluation re-run will rebuild the rollup anyway.
+  try {
+    const poolItems = await loadActivePoolItems(jobId);
+    for (const sessionId of voidedSessionIds) {
+      const questions = (await prisma.sessionQuestion.findMany({
+        where: { sessionId },
+        orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          order: true,
+          format: true,
+          itemId: true,
+          answer: { select: { content: true, revisions: true, firstAnsweredAt: true, lastAnsweredAt: true } },
+        },
+      })) as QuestionRow[];
+      await writeAssessment(sessionId, jobId, questions, poolItems, new Set());
+    }
+  } catch {
+    // Rollup refresh is advisory; the void itself is already durable.
+  }
+
+  return { itemId, jobId, evaluationsVoided, sessionsRenormalized: voidedSessionIds.length };
 }

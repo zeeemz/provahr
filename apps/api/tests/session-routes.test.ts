@@ -24,6 +24,7 @@ const {
   answerUpsert,
   signalCount,
   signalCreateMany,
+  jobQueueCreate,
   poolFindFirst,
 } = vi.hoisted(() => ({
   testSessionFindUnique: vi.fn(),
@@ -34,6 +35,7 @@ const {
   answerUpsert: vi.fn(),
   signalCount: vi.fn(),
   signalCreateMany: vi.fn(),
+  jobQueueCreate: vi.fn().mockResolvedValue({ id: 'q-1' }),
   poolFindFirst: vi.fn(),
 }));
 
@@ -44,6 +46,8 @@ vi.mock('../src/prisma', () => ({
     answer: { upsert: answerUpsert },
     sessionSignal: { count: signalCount, createMany: signalCreateMany },
     sealedQuestionPool: { findFirst: poolFindFirst },
+    // Submit wires the evaluation worker (QA wave-8 F1).
+    jobQueue: { create: jobQueueCreate },
     // Array form (start writes questions + status flip atomically — QA
     // wave-6 F2): await all promises; the interactive form is unused here.
     $transaction: (arg: unknown) => (Array.isArray(arg) ? Promise.all(arg) : (arg as () => Promise<unknown>)()),

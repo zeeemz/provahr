@@ -1,5 +1,20 @@
 # ProvaHR — Progress Tracker
 
+> **🔧 RESUME HERE (reboot/recovery checkpoint)**
+> 1. Repo is a git repository: wave boundaries are commits — `git log --oneline`
+>    to orient; commit after every wave close (user directive: survive reboots).
+> 2. Last completed: **wave 8 / Phase 8 CLOSED** (evaluation wired to submit,
+>    void race fixed, full-rollup renormalization — 375+16 ×2).
+> 3. In flight: **wave 9 / Phase 6a — web portal** (Agent WEB, apps/web).
+>    Next after gate+QA: Phase 6b Expo mobile (apps/mobile), then wave 10
+>    (Phase 9-10: TEST/REVIEW pipeline stages, first committed migration w/
+>    singleton constraints + VoidedItem FK, hardening backlog, DATA_MODEL
+>    rewrite, README final state, final commit).
+> 4. Open test-sweep items: CODE-format evaluation test; CI first-run of the
+>    integration tier.
+> 5. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc --noEmit
+>    && npx vitest run` (×2; expect 375+16 before wave 9 lands).
+
 > **Living document — updated after every work session.**
 > Last updated: 2026-08-29 · Maintained by: main harness agent
 
@@ -45,7 +60,7 @@
 | 5 | Candidate test portal (web): Swipe MCQ, review pass, signals | ✅ API engine complete (2026-08-29, wave 6 — UI in Phase 6 wave) |
 | 6 | Candidate mobile app (Expo): swipe gestures, signal parity | ⬜ pending |
 | 7 | Sandbox executor (Docker) + hidden test cases | ✅ complete (2026-08-29, wave 7 QA-closed; live-docker smoke deferred to Phase 10) |
-| 8 | LLM evaluation pipeline + HR X-ray + void | ⬜ pending |
+| 8 | LLM evaluation pipeline + HR X-ray + void | ✅ complete (2026-08-29, wave 8 QA-closed) |
 | 9 | Pipeline integration + dashboard + flags | ⬜ pending |
 | 10 | Hardening: rate limits, encryption, retention, docs, deploy | ⬜ pending |
 
@@ -323,6 +338,32 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-08-29 (wave 8 CLOSED — QA + fixes)** — QA verdict PASS-WITH-FINDINGS;
+  both crown jewels verified clean (test-spy: zero application-status writes;
+  route trace: no truth data candidate-reachable). Fixed: **evaluation wired
+  to submit** (the pipeline was dormant — enqueue now fires on submitSession,
+  failure never fails the submit), per-question void re-check (concurrent
+  void can no longer resurrect a score), void now refreshes the FULL rollup
+  over survivors + is company-scoped. Logged for later: VoidedItem FK with
+  the first migration; one-sided collusion snapshot accepted v1; CODE-format
+  evaluation test owed to the test sweep. Gate: typecheck clean, **375 + 16
+  CI-gated × 2**. Checkpoint commit follows. Wave 9 (web portal) dispatched.
+  *(main + QA agent)*
+- **2026-08-29 (reboot recovery + checkpointing)** — Laptop reboot interrupted
+  the wave-8 gate; disk state intact, gate re-run green (375+16 ×2).
+  Checkpointing installed per user directive: repo is now a git repository —
+  `checkpoint: waves 0-8` committed (143 files, tool-state excluded), wave
+  boundaries become commits; RESUME-HERE block added atop this file. Stale
+  "only decryption site" comment corrected (evaluation is the second,
+  worker-side site). *(main)*
+- **2026-08-29 (wave 8 / Phase 8 integrated)** — Evaluation pipeline landed:
+  deterministic SWIPE/MCQ scoring (pure), sandbox+LLM for CODE, LLM-judged
+  WRITTEN with AI-likelihood flags (never rejections — invariant verified:
+  zero application-status writes), exact-match collusion flags, session
+  assessment rollups, HR X-ray endpoint, void-with-renormalization (voided
+  rows never resurrect on re-run). Fairness deviation: WRITTEN without a
+  provider scores NOTHING rather than an unfair zero. Gate: typecheck clean,
+  **375 + 16 CI-gated × 2** (+32). QA dispatched. *(main + Agent EVAL)*
 - **2026-08-29 (wave 7 CLOSED — QA + redesign)** — QA verdict
   PASS-WITH-FINDINGS; candidate surface closed, but the runtime backstop
   checker missed docker's last-occurrence-wins semantics (verified against

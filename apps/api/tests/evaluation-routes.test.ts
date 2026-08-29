@@ -29,6 +29,7 @@ const {
   poolFindFirst,
   voidedItemFindMany,
   voidedItemUpsert,
+  voidedItemFindUnique,
   llmProviderFindFirst,
   evaluationFindUnique,
   evaluationUpsert,
@@ -62,6 +63,7 @@ const {
   poolFindFirst: vi.fn(),
   voidedItemFindMany: vi.fn(),
   voidedItemUpsert: vi.fn(),
+  voidedItemFindUnique: vi.fn().mockResolvedValue(null),
   llmProviderFindFirst: vi.fn(),
   evaluationFindUnique: vi.fn(),
   evaluationUpsert: vi.fn(),
@@ -81,7 +83,7 @@ vi.mock('../src/prisma', () => ({
     sessionQuestion: { findFirst: sessionQuestionFindFirst, findMany: sessionQuestionFindMany },
     answer: { upsert: answerUpsertUnused },
     sealedQuestionPool: { findFirst: poolFindFirst },
-    voidedItem: { findMany: voidedItemFindMany, upsert: voidedItemUpsert },
+    voidedItem: { findMany: voidedItemFindMany, upsert: voidedItemUpsert, findUnique: voidedItemFindUnique },
     llmProvider: { findFirst: llmProviderFindFirst },
     evaluation: {
       findUnique: evaluationFindUnique,
@@ -367,7 +369,7 @@ describe('POST /api/applications/admin/items/:itemId/void', () => {
       { sessionQuestionId: 'sq-1', sessionItemId: 'item-swipe', score: 1.0, verdict: 'CORRECT', aiLikelihood: 'LOW', voided: false },
       { sessionQuestionId: 'sq-2', sessionItemId: 'item-mcq', score: 0.5, verdict: 'PARTIAL', aiLikelihood: 'LOW', voided: false },
     ];
-    sessionQuestionFindFirst.mockResolvedValue({ session: { jobId: 'job-1' } });
+    sessionQuestionFindFirst.mockResolvedValue({ session: { jobId: 'job-1', job: { companyId: 'company-1' } } });
     sessionQuestionFindMany.mockImplementation(async (args: { where: Record<string, unknown> }) => {
       const where = args?.where ?? {};
       if (typeof where.sessionId === 'string') return SESSION_QUESTIONS;
@@ -422,11 +424,15 @@ describe('POST /api/applications/admin/items/:itemId/void', () => {
     });
 
     // Renormalized: mean over the SURVIVING evaluation only (0.5, not 0.75).
-    expect(sessionAssessmentUpsert).toHaveBeenCalledTimes(1);
-    const arg = sessionAssessmentUpsert.mock.calls[0]![0] as { where: { sessionId: string }; create: { totalScore: number }; update: { totalScore: number } };
-    expect(arg.where.sessionId).toBe('sess-1');
-    expect(arg.create.totalScore).toBeCloseTo(0.5);
-    expect(arg.update.totalScore).toBeCloseTo(0.5);
+    // Two upserts are expected post-QA-wave-8: the immediate in-transaction
+    // mean, then the full rollup refresh (F3) — both must carry 0.5.
+    expect(sessionAssessmentUpsert.mock.calls.length).toBeGreaterThanOrEqual(1);
+    for (const call of sessionAssessmentUpsert.mock.calls) {
+      const arg = call[0] as { where: { sessionId: string }; create: { totalScore: number }; update: { totalScore: number } };
+      expect(arg.where.sessionId).toBe('sess-1');
+      expect(arg.create.totalScore).toBeCloseTo(0.5);
+      expect(arg.update.totalScore).toBeCloseTo(0.5);
+    }
   });
 
   it('404s for an item that appeared in no session', async () => {
@@ -511,6 +517,10 @@ describe('runEvaluation — swipe+mcq happy path (no LLM configured)', () => {
 
   it('skips questions whose item is voided across sessions, and the mean excludes them', async () => {
     voidedItemFindMany.mockResolvedValue([{ itemId: 'item-swipe' }]); // the swipe item is voided
+    // Per-question re-check (QA wave-8 F2) must agree with the snapshot.
+    voidedItemFindUnique.mockImplementation(async ({ where }: { where: { itemId: string } }) =>
+      where.itemId === 'item-swipe' ? { itemId: 'item-swipe' } : null,
+    );
     await runEvaluation('sess-1');
 
     expect(evaluationUpsert).toHaveBeenCalledTimes(1); // only the MCQ row
