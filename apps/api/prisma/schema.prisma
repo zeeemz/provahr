@@ -1,0 +1,588 @@
+// Hiring Platform — database schema
+// See docs/DATA_MODEL.md for field-level documentation.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  RECRUITER
+  INTERVIEWER
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  PAUSED
+  CLOSED
+}
+
+enum RoleFamily {
+  ENGINEERING
+  PRODUCT_MANAGEMENT
+  DESIGN
+  DATA
+  QA
+  OTHER
+}
+
+enum WorkMode {
+  ONSITE
+  HYBRID
+  REMOTE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+enum Stage {
+  APPLIED
+  SCREENING
+  ASSESSMENT
+  INTERVIEW
+  OFFER
+  HIRED
+}
+
+enum ApplicationStatus {
+  ACTIVE
+  REJECTED
+  WITHDRAWN
+  HIRED
+}
+
+enum InterviewType {
+  PHONE_SCREEN
+  TECHNICAL
+  SYSTEM_DESIGN
+  BEHAVIORAL
+  PANEL
+  FINAL
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum Recommendation {
+  STRONG_HIRE
+  HIRE
+  NO_HIRE
+  STRONG_NO_HIRE
+}
+
+// JD generation lifecycle (PLAN.md Phase 2). Nullable on Job: legacy and
+// manually-created jobs never enter the flow, so `jdStatus = null` means
+// "no JD pipeline for this job".
+enum JdStatus {
+  JD_DRAFTING
+  JD_REVIEW
+  JD_APPROVED
+  JD_FAILED
+}
+
+// Background job queue states (PLAN.md Phase 2).
+enum QueueStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  website   String?
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  jobs  Job[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         UserRole  @default(RECRUITER)
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  interviews Interview[] @relation("Interviewer")
+  scorecards Scorecard[]
+  stageEvents StageEvent[]
+
+  @@index([companyId])
+  @@map("users")
+}
+
+model Job {
+  id             String         @id @default(cuid())
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title          String
+  department     String
+  roleFamily     RoleFamily
+  location       String
+  workMode       WorkMode       @default(ONSITE)
+  employmentType EmploymentType @default(FULL_TIME)
+  salaryMin      Int?
+  salaryMax      Int?
+  salaryCurrency String?
+  description    String
+  status         JobStatus      @default(DRAFT)
+
+  // ── JD generation intake (PLAN.md Phase 2) ────────────────────────────
+  // All nullable: a Job that never went through role intake keeps nulls.
+  jdStatus       JdStatus?
+  jdNotes        String?  // recruiter's freeform brief
+  jdSourceUrls   Json?    // string[] of reference URLs
+  jdScreenshots  Json?    // {name, mediaType, base64}[] — size-capped by zod at intake
+  jdFetchedText  String?  // concatenated excerpts fetched from source URLs
+  jdDraft        Json?    // LLM-produced draft object (HR-editable)
+  jdError        String?  // last generation failure message (interim state)
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  applications Application[]
+
+  // ── Test blueprint & sealed pool (PLAN.md Phase 3, §5) ────────────────
+  blueprint    TestBlueprint?
+  pools        SealedQuestionPool[]
+  sampleItems  SampleItem[]
+  testSessions TestSession[]
+
+  @@index([companyId, status])
+  @@index([status, roleFamily])
+  @@map("jobs")
+}
+
+model Candidate {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  phone       String?
+  resumeUrl   String?
+  linkedinUrl String?
+  githubUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  applications Application[]
+
+  @@map("candidates")
+}
+
+model Application {
+  id              String            @id @default(cuid())
+  jobId           String
+  job             Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  stage           Stage             @default(APPLIED)
+  status          ApplicationStatus @default(ACTIVE)
+  source          String?
+  coverLetter     String?
+  rejectionReason String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  stageEvents StageEvent[]
+  interviews  Interview[]
+  scorecards  Scorecard[]
+  testSession TestSession?
+
+  @@unique([jobId, candidateId])
+  @@index([stage])
+  @@map("applications")
+}
+
+/// Append-only audit trail: stage transitions and status changes.
+/// Never updated or deleted (fair-hiring requirement — see docs/PLAN.md §8).
+model StageEvent {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStage     Stage?
+  toStage       Stage
+  note          String?
+  actorId       String?
+  actor         User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, createdAt])
+  @@map("stage_events")
+}
+
+model Interview {
+  id              String          @id @default(cuid())
+  applicationId   String
+  application     Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewerId   String?
+  interviewer     User?           @relation("Interviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
+  type            InterviewType
+  scheduledAt     DateTime
+  durationMinutes Int             @default(45)
+  locationOrLink  String?
+  status          InterviewStatus @default(SCHEDULED)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  scorecards Scorecard[]
+
+  @@index([applicationId])
+  @@map("interviews")
+}
+
+model Scorecard {
+  id             String          @id @default(cuid())
+  applicationId  String
+  application    Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  interviewId    String?
+  interview      Interview?      @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+  technical      Int
+  communication  Int
+  problemSolving Int
+  roleFit        Int
+  strengths      String?
+  concerns       String?
+  summary        String?
+  recommendation Recommendation
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([applicationId, authorId])
+  @@map("scorecards")
+}
+
+// ─── LLM providers (PLAN.md Phase 1, decision D9) ────────────────────────────
+
+enum LlmProviderKind {
+  OPENAI_COMPATIBLE
+  ANTHROPIC
+  AZURE_OPENAI
+}
+
+/// Admin-configured LLM provider credentials. Exactly one row is active at a
+/// time — enforced by the admin service's deactivate-then-activate transaction.
+/// KNOWN LIMITATION (QA wave-2 F3): concurrent admin mutations can race under
+/// READ COMMITTED into two active rows; readers pick deterministically (oldest
+/// first). A partial unique index (`ON llm_providers ((true)) WHERE isActive`)
+/// lands with the first committed migration — as does the Company singleton
+/// constraint (PROGRESS.md wave-1 F2).
+///
+/// `apiKeyEncrypted` is an AES-256-GCM secret box produced by src/lib/crypto.ts
+/// (format: `v1.<iv>.<authTag>.<ciphertext>`, base64url segments) — the raw key
+/// is never stored or returned by any endpoint.
+///
+/// Per-kind field meanings:
+/// - OPENAI_COMPATIBLE: `baseUrl` is the API root (must include `/v1` where
+///   applicable); `textModel` is the model id (e.g. `gpt-4o-mini`).
+/// - ANTHROPIC: `baseUrl` is the API root (adapter appends `/v1/messages`);
+///   `textModel` is the model id (e.g. `claude-sonnet-4-20250514`).
+/// - AZURE_OPENAI: `baseUrl` is the resource URL (`https://<resource>.openai.azure.com`)
+///   and `textModel` is the DEPLOYMENT name, not the model id. The api-version
+///   is fixed by the adapter. See docs/SELF_HOSTING.md.
+model LlmProvider {
+  id              String          @id @default(cuid())
+  kind            LlmProviderKind
+  baseUrl         String
+  apiKeyEncrypted String
+  textModel       String
+  visionModel     String?
+  isActive        Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@map("llm_providers")
+}
+
+// ─── Background job queue (PLAN.md Phase 2) ─────────────────────────────────
+
+/// DB-backed work queue consumed by src/worker.ts. Producers insert PENDING
+/// rows; the worker claims via a conditional `updateMany` on status=PENDING so
+/// at-most-one worker wins a row (see src/lib/queue.ts). Single-worker
+/// assumption documented there — `requeueStale` recovers rows orphaned in
+/// RUNNING by a crashed worker at next boot.
+model JobQueue {
+  id          String       @id @default(cuid())
+  type        String
+  payload     Json
+  status      QueueStatus  @default(PENDING)
+  attempts    Int          @default(0)
+  maxAttempts Int          @default(3)
+  lastError   String?
+  runAt       DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status, runAt])
+  @@map("job_queue")
+}
+
+// ─── Test blueprint & sealed pool (PLAN.md Phase 3, §5) ──────────────────────
+
+/// The HR-designed test shape (PLAN.md §5.1): topics, format mix, counts,
+/// difficulty — and NEVER a question. `sections` holds BlueprintSection[]
+/// (src/lib/assessment/item.ts). One per job; `version` bumps on replace so a
+/// sealed pool can record which blueprint version it was generated from.
+model TestBlueprint {
+  id           String   @id @default(cuid())
+  jobId        String   @unique
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sections     Json     // BlueprintSection[] — topics/formats/counts/difficulty, NEVER questions
+  timeLimitMin Int
+  version      Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  pools SealedQuestionPool[]
+
+  @@map("test_blueprints")
+}
+
+/// The sealed question pool — the "bulletproof" core (PLAN.md §5). Items are
+/// generated server-side by the worker, AES-256-GCM-encrypted with
+/// src/lib/crypto.ts into `itemsEncrypted`, and exposed by NO API endpoint to
+/// ANY role (admin included). Only the worker decrypts, and only to draw
+/// session items. Sample previews live in `sample_items` instead and are never
+/// drawn. Re-sealing deactivates old pools — a stolen database dump ages out
+/// of usefulness.
+///
+/// `isActive`: one active pool per job, enforced at the service level inside
+/// the seal transaction — same KNOWN RACE as LlmProvider.isActive (QA wave-2
+/// F3): concurrent seal+reseal under READ COMMITTED can briefly leave two
+/// active rows. Readers pick deterministically (newest `sealedAt` first); the
+/// partial unique index lands with the same migration wave.
+model SealedQuestionPool {
+  id              String   @id @default(cuid())
+  jobId           String
+  job             Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  blueprintId     String
+  blueprint       TestBlueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+  blueprintVersion Int
+  itemsEncrypted  String   // AES-256-GCM box (lib/crypto) — decrypted ONLY at the session-start draw site (modules/public/session.service.ts)
+  itemCount       Int
+  isActive        Boolean  @default(true) // one active pool per job (service-level; same known race as LlmProvider — documented above)
+  sealedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([jobId, isActive])
+  @@map("sealed_question_pools")
+}
+
+/// PREVIEW-ONLY items shown to HR at blueprint-edit time (PLAN.md §5.1): the
+/// LLM generates a few examples so HR can judge quality without ever seeing
+/// the real pool. By construction they are excluded from session draws — the
+/// draw path reads only `sealed_question_pools.itemsEncrypted`.
+model SampleItem {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  item      Json     // PREVIEW-ONLY items shown to HR; never drawn into sessions
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+  @@map("sample_items")
+}
+
+// ─── One-time test links (PLAN.md Phase 4, §4 loop step 3, §8) ───────────────
+
+/// One-time test link session. Token: 32 random bytes, URL-safe, stored ONLY
+/// as a sha256 hash. Single use; expires; issued only for jobs with an active
+/// sealed pool. Session start/draw/answers are Phase 5 — this model exists
+/// for issuance + status now.
+model TestSession {
+  id            String      @id @default(cuid())
+  jobId         String
+  job           Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicationId String      @unique
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  tokenHash     String      @unique
+  issuedAt      DateTime    @default(now())
+  expiresAt     DateTime
+  startedAt     DateTime?
+  submittedAt   DateTime?
+  // Set ONCE at start — the never-pausing hard clock (PLAN.md §5.2 mechanism
+  // 5, docs/TESTING.md §6 #5). Re-entry, answer revisions and the review pass
+  // never move it; mutations past it fail with 409 SESSION_EXPIRED.
+  deadlineAt    DateTime?
+  status        String      @default("ISSUED") // ISSUED → STARTED → SUBMITTED | EXPIRED (Phase 5 transitions)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  sessionQuestions SessionQuestion[]
+  signals          SessionSignal[]
+  assessment       SessionAssessment?
+
+  @@index([jobId])
+  @@map("test_sessions")
+}
+
+// ─── Candidate test session artifacts (PLAN.md Phase 5, §4 loop step 4, §8) ───
+
+// The realized per-session draw (PLAN §8). Candidate-visible surface ends here:
+// prompt + options as variant-realized for THIS session. No truth flags, no
+// correctOptionId, no rubric, no hiddenCases — those live only in the sealed
+// pool and the (Phase 8) evaluation.
+model SessionQuestion {
+  id            String   @id @default(cuid())
+  sessionId     String
+  session       TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  order         Int
+  format        String   // SWIPE_MCQ | MCQ | WRITTEN | CODE
+  itemId        String   // sealed-pool item id (leak traceability, PLAN §5.2 #6)
+  presented     Json     // variant-realized candidate view: prompt, options[{id,text}], language, starterCode — NO answers
+  createdAt     DateTime @default(now())
+
+  answer Answer?
+  executionResult ExecutionResult?
+  evaluation Evaluation?
+
+  @@unique([sessionId, order])
+  @@index([itemId]) // Phase 8 void-by-item / re-normalization queries (QA wave-6 F9)
+  @@map("session_questions")
+}
+
+// One answer per session question, upserted as the candidate revises (bounded
+// review pass — PLAN §5.2 mechanism 4). Final state counts; the revision
+// counter and timestamps feed the timing signals of Phase 8 evaluation.
+model Answer {
+  id              String   @id @default(cuid())
+  sessionQuestionId String @unique
+  sessionQuestion SessionQuestion @relation(fields: [sessionQuestionId], references: [id], onDelete: Cascade)
+  // SWIPE_MCQ: {optionId: 'LIKE'|'DISLIKE'}; MCQ: {optionId}; WRITTEN/CODE: {text}
+  content         Json?
+  revisions       Int      @default(0)
+  firstAnsweredAt DateTime?
+  lastAnsweredAt  DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@map("answers")
+}
+
+// Proctoring events (PLAN §4 step 4, §8). Append-only evidence for Phase 8
+// evaluation — signals NEVER affect session status on their own (flag, never
+// auto-reject, PLAN §2.1).
+model SessionSignal {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type      String   // TAB_SWITCH | APP_BACKGROUND | BLUR | LARGE_PASTE | COPY | TIMING_ANOMALY
+  at        DateTime
+  detail    Json?    // e.g. {chars: 1200} for LARGE_PASTE, {ms: 5100} timings
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@map("session_signals")
+}
+
+// ─── Sandbox execution results (PLAN.md Phase 7, §5.2 mechanism 3) ────────────
+
+// Sandbox execution record for a CODE answer (PLAN §7 phase-7). Written by
+// the evaluation worker after running the candidate's code against the item's
+// hidden cases. Per-case outcomes summarized in caseResults.
+model ExecutionResult {
+  sessionQuestionId String         @unique
+  sessionQuestion   SessionQuestion @relation(fields: [sessionQuestionId], references: [id], onDelete: Cascade)
+  exitCode          Int?
+  durationMs        Int
+  truncated         Boolean        @default(false)
+  stdout            String         @db.Text
+  stderr            String         @db.Text
+  caseResults       Json           // CaseOutcome[] — pass/fail per hidden case with excerpts
+  createdAt         DateTime       @default(now())
+
+  @@map("execution_results")
+}
+
+// ─── Evaluation (PLAN.md Phase 8, §4 loop step 6, §8) ────────────────────────
+
+/// Per-answer evaluation — HR-ONLY, never exposed to candidates (PLAN §12 D5,
+/// docs/TESTING.md §6 #6). Written by the EVALUATION worker
+/// (modules/applications/evaluation.service.ts) after a session is SUBMITTED.
+///
+/// `aiLikelihood` is a FLAG for human reviewers — flag, never auto-reject
+/// (PLAN §2.1): no code path may turn it into a rejection.
+///
+/// `voided`: set when HR voids the underlying item (VoidedItem) — the row is
+/// kept for the audit trail but excluded from SessionAssessment.totalScore.
+model Evaluation {
+  id               String          @id @default(cuid())
+  sessionQuestionId String         @unique
+  sessionQuestion  SessionQuestion @relation(fields: [sessionQuestionId], references: [id], onDelete: Cascade)
+  verdict          String          // CORRECT | PARTIAL | INCORRECT
+  score            Float           // 0..1
+  method           String          // DETERMINISTIC (swipe/mcq) | SANDBOX (code) | LLM (written) | SANDBOX_LLM (code+review)
+  detail           Json?           // per-option hits / case summary / LLM review text
+  qualityNotes     String?         // LLM code/written quality review (markdown)
+  aiLikelihood     String          @default("LOW") // LOW | MEDIUM | HIGH — a FLAG for humans (never auto-reject, PLAN §2.1)
+  aiReasoning      String?
+  voided           Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+
+  @@index([sessionQuestionId])
+  @@map("evaluations")
+}
+
+/// Session rollup (PLAN.md Phase 8, §8) — HR-ONLY. totalScore is the mean of
+/// the session's NON-VOIDED Evaluation scores; strengths/gaps are derived
+/// deterministically from per-question verdicts by topic (no extra LLM call).
+/// `recommendation` is advisory text — humans decide (PLAN §12 D2).
+model SessionAssessment {
+  sessionId       String      @id
+  session         TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  totalScore      Float
+  strengths       String?
+  gaps            String?
+  recommendation  String? // advisory text for HR — humans decide (D2)
+  flagSummary     Json?  // {aiHigh: n, aiMedium: n, signals: {...}, collusion: [...]}
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("session_assessments")
+}
+
+/// HR/admin void of a flawed pool item ACROSS ALL sessions (PLAN.md §5.2 #7):
+/// marking an item voided re-normalizes every affected SessionAssessment
+/// (score mean recomputed over the remaining non-voided questions). Fairness
+/// requires that a bad generated question never silently penalize candidates.
+model VoidedItem {
+  id        String   @id @default(cuid())
+  itemId    String
+  jobId     String
+  reason    String
+  voidedBy  String
+  createdAt DateTime @default(now())
+
+  @@unique([itemId])
+  @@index([jobId])
+  @@map("voided_items")
+}

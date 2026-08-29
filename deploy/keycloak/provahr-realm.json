@@ -1,0 +1,80 @@
+{
+  "realm": "provahr",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Full ProvaHR access, including settings and user management"
+      },
+      {
+        "name": "RECRUITER",
+        "description": "Manage jobs, candidates and pipelines"
+      },
+      {
+        "name": "INTERVIEWER",
+        "description": "Conduct interviews and submit scorecards"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "provahr-api",
+      "name": "ProvaHR API",
+      "description": "Bearer-only resource server. ProvaHR verifies RS256 access tokens against this issuer; no secret flows.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "provahr-web",
+      "name": "ProvaHR Web",
+      "description": "Public browser client for the ProvaHR frontend (PKCE enforced).",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:8080/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "provahr-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "provahr-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "provahr-admin",
+      "enabled": true,
+      "email": "provahr-admin@provahr.local",
+      "firstName": "ProvaHR",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "changeme-now",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ADMIN"]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "@provahr/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProvaHR web frontend — HR console, public board, candidate test portal. Built from Phase 4 onward.",
+  "license": "Apache-2.0"
+}

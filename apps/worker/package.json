@@ -1,0 +1,7 @@
+{
+  "name": "@provahr/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProvaHR worker — async LLM jobs (JD gen, pool gen, variants, grading, collusion) and sandbox execution. Built from Phase 1 onward.",
+  "license": "Apache-2.0"
+}

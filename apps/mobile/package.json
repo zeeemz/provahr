@@ -1,0 +1,7 @@
+{
+  "name": "@provahr/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProvaHR candidate mobile app — React Native + Expo (apply, consent, Swipe-MCQ test session). Built from Phase 6 onward.",
+  "license": "Apache-2.0"
+}
