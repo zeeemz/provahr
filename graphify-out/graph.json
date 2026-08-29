@@ -1678,7 +1678,7 @@
       "file_type": "code",
       "norm_label": "needsllmerror",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L449"
+      "source_location": "L452"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_questionrow",
@@ -1691,7 +1691,7 @@
       "file_type": "code",
       "norm_label": "questionrow",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L172"
+      "source_location": "L173"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_verdict",
@@ -1964,7 +1964,7 @@
       "file_type": "code",
       "norm_label": "testoutcome",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L54"
+      "source_location": "L56"
     },
     {
       "id": "web_src_api_types_ailikelihood",
@@ -2614,7 +2614,7 @@
       "file_type": "code",
       "norm_label": "redactedprovider",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L9"
+      "source_location": "L16"
     },
     {
       "id": "api_src_modules_admin_llm_providers_service_smoketestresult",
@@ -2627,7 +2627,7 @@
       "file_type": "code",
       "norm_label": "smoketestresult",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L101"
+      "source_location": "L112"
     },
     {
       "id": "mobile_app_app",
@@ -3203,7 +3203,7 @@
       "file_type": "code",
       "norm_label": "approvejd()",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L137"
+      "source_location": "L141"
     },
     {
       "id": "api_src_modules_jobs_jd_service_asscreenshotarray",
@@ -3239,7 +3239,7 @@
       "file_type": "code",
       "norm_label": "deepmerge()",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L108"
+      "source_location": "L112"
     },
     {
       "id": "api_src_modules_jobs_jd_service_editdraft",
@@ -3251,7 +3251,7 @@
       "file_type": "code",
       "norm_label": "editdraft()",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L121"
+      "source_location": "L125"
     },
     {
       "id": "api_src_modules_jobs_jd_service_getjd",
@@ -3263,7 +3263,7 @@
       "file_type": "code",
       "norm_label": "getjd()",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L87"
+      "source_location": "L91"
     },
     {
       "id": "api_src_modules_jobs_jd_service_getscopedjob",
@@ -3287,7 +3287,7 @@
       "file_type": "code",
       "norm_label": "isplainobject()",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L103"
+      "source_location": "L107"
     },
     {
       "id": "api_src_modules_jobs_jd_service_runjdgeneration",
@@ -3299,7 +3299,7 @@
       "file_type": "code",
       "norm_label": "runjdgeneration()",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L172"
+      "source_location": "L176"
     },
     {
       "id": "api_src_modules_jobs_jobs_schema_salaryrefinement",
@@ -3623,7 +3623,7 @@
       "file_type": "code",
       "norm_label": "addproviderform()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L271"
+      "source_location": "L274"
     },
     {
       "id": "web_src_admin_providerspage_addproviderform_submit",
@@ -3635,7 +3635,7 @@
       "file_type": "code",
       "norm_label": "submit()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L286"
+      "source_location": "L289"
     },
     {
       "id": "web_src_admin_providerspage_addproviderform_switchkind",
@@ -3647,7 +3647,7 @@
       "file_type": "code",
       "norm_label": "switchkind()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L280"
+      "source_location": "L283"
     },
     {
       "id": "web_src_admin_providerspage_providerspage",
@@ -3659,7 +3659,7 @@
       "file_type": "code",
       "norm_label": "providerspage()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L56"
+      "source_location": "L58"
     },
     {
       "id": "web_src_admin_providerspage_providerspage_activate",
@@ -3671,7 +3671,7 @@
       "file_type": "code",
       "norm_label": "activate()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L84"
+      "source_location": "L86"
     },
     {
       "id": "web_src_admin_providerspage_providerspage_confirmdelete",
@@ -3683,7 +3683,7 @@
       "file_type": "code",
       "norm_label": "confirmdelete()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L111"
+      "source_location": "L113"
     },
     {
       "id": "web_src_admin_providerspage_providerspage_test",
@@ -3695,7 +3695,7 @@
       "file_type": "code",
       "norm_label": "test()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L97"
+      "source_location": "L99"
     },
     {
       "id": "web_src_admin_teampage_inviteform",
@@ -4427,7 +4427,7 @@
       "file_type": "code",
       "norm_label": "getactiveadapter()",
       "source_file": "api/src/lib/llm/index.ts",
-      "source_location": "L60"
+      "source_location": "L65"
     },
     {
       "id": "api_src_lib_queue_enqueue",
@@ -4463,7 +4463,7 @@
       "file_type": "code",
       "norm_label": "activepoolfor()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L88"
+      "source_location": "L93"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_asitemsarray",
@@ -4475,7 +4475,7 @@
       "file_type": "code",
       "norm_label": "asitemsarray()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L265"
+      "source_location": "L270"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_assertprovider",
@@ -4487,7 +4487,7 @@
       "file_type": "code",
       "norm_label": "assertprovider()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L66"
+      "source_location": "L68"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_formatsummary",
@@ -4499,7 +4499,7 @@
       "file_type": "code",
       "norm_label": "formatsummary()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L96"
+      "source_location": "L101"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_generateitems",
@@ -4511,7 +4511,7 @@
       "file_type": "code",
       "norm_label": "generateitems()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L279"
+      "source_location": "L284"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_getblueprint",
@@ -4523,7 +4523,7 @@
       "file_type": "code",
       "norm_label": "getblueprint()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L158"
+      "source_location": "L163"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_getpool",
@@ -4535,7 +4535,7 @@
       "file_type": "code",
       "norm_label": "getpool()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L246"
+      "source_location": "L251"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_getsamples",
@@ -4547,7 +4547,7 @@
       "file_type": "code",
       "norm_label": "getsamples()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L192"
+      "source_location": "L197"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_getscopedjob",
@@ -4583,7 +4583,7 @@
       "file_type": "code",
       "norm_label": "putblueprint()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L125"
+      "source_location": "L130"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_requestsamples",
@@ -4595,7 +4595,7 @@
       "file_type": "code",
       "norm_label": "requestsamples()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L183"
+      "source_location": "L188"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_requireblueprint",
@@ -4607,7 +4607,7 @@
       "file_type": "code",
       "norm_label": "requireblueprint()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L77"
+      "source_location": "L82"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_resealpool",
@@ -4619,7 +4619,7 @@
       "file_type": "code",
       "norm_label": "resealpool()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L225"
+      "source_location": "L230"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_runpoolseal",
@@ -4631,7 +4631,7 @@
       "file_type": "code",
       "norm_label": "runpoolseal()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L420"
+      "source_location": "L426"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_runsamplesgeneration",
@@ -4643,7 +4643,7 @@
       "file_type": "code",
       "norm_label": "runsamplesgeneration()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L336"
+      "source_location": "L341"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_sealpool",
@@ -4655,7 +4655,7 @@
       "file_type": "code",
       "norm_label": "sealpool()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L205"
+      "source_location": "L210"
     },
     {
       "id": "api_src_modules_jobs_blueprint_service_toblueprintdto",
@@ -4667,7 +4667,7 @@
       "file_type": "code",
       "norm_label": "toblueprintdto()",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L102"
+      "source_location": "L107"
     },
     {
       "id": "api_src_prompts_pool_builditemsuserprompt",
@@ -6431,7 +6431,7 @@
       "file_type": "code",
       "norm_label": "chatjson()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L161"
+      "source_location": "L162"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_detectcollusion",
@@ -6443,7 +6443,7 @@
       "file_type": "code",
       "norm_label": "detectcollusion()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L490"
+      "source_location": "L493"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_evaluatequestion",
@@ -6455,7 +6455,7 @@
       "file_type": "code",
       "norm_label": "evaluatequestion()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L283"
+      "source_location": "L286"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_getxray",
@@ -6467,7 +6467,7 @@
       "file_type": "code",
       "norm_label": "getxray()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L612"
+      "source_location": "L615"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_isplainobject",
@@ -6503,7 +6503,7 @@
       "file_type": "code",
       "norm_label": ".constructor()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L450"
+      "source_location": "L453"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_runevaluation",
@@ -6515,7 +6515,7 @@
       "file_type": "code",
       "norm_label": "runevaluation()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L189"
+      "source_location": "L190"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_secondsspenton",
@@ -6539,7 +6539,7 @@
       "file_type": "code",
       "norm_label": "topictallies()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L458"
+      "source_location": "L461"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_trygetadapter",
@@ -6551,7 +6551,7 @@
       "file_type": "code",
       "norm_label": "trygetadapter()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L151"
+      "source_location": "L152"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_verdictfromscore",
@@ -6575,7 +6575,7 @@
       "file_type": "code",
       "norm_label": "voiditem()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L707"
+      "source_location": "L710"
     },
     {
       "id": "api_src_modules_applications_evaluation_service_writeassessment",
@@ -6587,7 +6587,7 @@
       "file_type": "code",
       "norm_label": "writeassessment()",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L528"
+      "source_location": "L531"
     },
     {
       "id": "api_src_prompts_evaluation_buildcodereviewprompt",
@@ -7307,7 +7307,7 @@
       "file_type": "code",
       "norm_label": "deleteprovidermodal()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L384"
+      "source_location": "L387"
     },
     {
       "id": "web_src_admin_providerspage_providerrow",
@@ -7319,7 +7319,7 @@
       "file_type": "code",
       "norm_label": "providerrow()",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L192"
+      "source_location": "L195"
     },
     {
       "id": "api_src_lib_llm_anthropic_anthropicadapter_chat",
@@ -7607,7 +7607,7 @@
       "file_type": "code",
       "norm_label": "activateprovider()",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L87"
+      "source_location": "L98"
     },
     {
       "id": "api_src_modules_admin_llm_providers_service_createprovider",
@@ -7619,7 +7619,7 @@
       "file_type": "code",
       "norm_label": "createprovider()",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L55"
+      "source_location": "L64"
     },
     {
       "id": "api_src_modules_admin_llm_providers_service_deleteprovider",
@@ -7631,7 +7631,7 @@
       "file_type": "code",
       "norm_label": "deleteprovider()",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L96"
+      "source_location": "L107"
     },
     {
       "id": "api_src_modules_admin_llm_providers_service_getprovideror404",
@@ -7643,7 +7643,7 @@
       "file_type": "code",
       "norm_label": "getprovideror404()",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L42"
+      "source_location": "L49"
     },
     {
       "id": "api_src_modules_admin_llm_providers_service_listproviders",
@@ -7655,7 +7655,7 @@
       "file_type": "code",
       "norm_label": "listproviders()",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L50"
+      "source_location": "L59"
     },
     {
       "id": "api_src_modules_admin_llm_providers_service_smoketest",
@@ -7667,7 +7667,7 @@
       "file_type": "code",
       "norm_label": "smoketest()",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L109"
+      "source_location": "L120"
     },
     {
       "id": "api_src_modules_admin_llm_providers_service_toredactedprovider",
@@ -7679,7 +7679,7 @@
       "file_type": "code",
       "norm_label": "toredactedprovider()",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L20"
+      "source_location": "L27"
     },
     {
       "id": "api_src_modules_admin_llm_providers_service_updateprovider",
@@ -7691,7 +7691,7 @@
       "file_type": "code",
       "norm_label": "updateprovider()",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L72"
+      "source_location": "L83"
     },
     {
       "id": "api_tests_crypto_test_tamper",
@@ -7715,7 +7715,7 @@
       "file_type": "code",
       "norm_label": "applicationrow()",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L256"
+      "source_location": "L258"
     },
     {
       "id": "api_tests_evaluation_routes_test_primerunevaluation",
@@ -7727,7 +7727,7 @@
       "file_type": "code",
       "norm_label": "primerunevaluation()",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L191"
+      "source_location": "L193"
     },
     {
       "id": "api_tests_evaluation_routes_test_swipeanswerrow",
@@ -7739,7 +7739,7 @@
       "file_type": "code",
       "norm_label": "swipeanswerrow()",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L158"
+      "source_location": "L160"
     },
     {
       "id": "api_tests_evaluation_routes_test_xrayquestionrow",
@@ -7751,7 +7751,7 @@
       "file_type": "code",
       "norm_label": "xrayquestionrow()",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L274"
+      "source_location": "L276"
     },
     {
       "id": "mobile_app_styles",
@@ -12679,7 +12679,7 @@
       "file_type": "code",
       "norm_label": "base_url_placeholder",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L27"
+      "source_location": "L29"
     },
     {
       "id": "web_src_admin_providerspage_kind_helper",
@@ -12690,7 +12690,7 @@
       "file_type": "code",
       "norm_label": "kind_helper",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L39"
+      "source_location": "L41"
     },
     {
       "id": "web_src_admin_providerspage_kind_label",
@@ -12701,7 +12701,7 @@
       "file_type": "code",
       "norm_label": "kind_label",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L21"
+      "source_location": "L23"
     },
     {
       "id": "web_src_admin_providerspage_kinds",
@@ -12712,7 +12712,7 @@
       "file_type": "code",
       "norm_label": "kinds",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L19"
+      "source_location": "L21"
     },
     {
       "id": "web_src_admin_providerspage_text_model_placeholder",
@@ -12723,7 +12723,7 @@
       "file_type": "code",
       "norm_label": "text_model_placeholder",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L33"
+      "source_location": "L35"
     },
     {
       "id": "web_src_api_types",
@@ -13471,7 +13471,7 @@
       "file_type": "code",
       "norm_label": "app",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L110"
+      "source_location": "L112"
     },
     {
       "id": "api_tests_evaluation_routes_test_auth",
@@ -13482,7 +13482,7 @@
       "file_type": "code",
       "norm_label": "auth",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L112"
+      "source_location": "L114"
     },
     {
       "id": "api_tests_evaluation_routes_test_encrypted_pool",
@@ -13493,7 +13493,7 @@
       "file_type": "code",
       "norm_label": "encrypted_pool",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L154"
+      "source_location": "L156"
     },
     {
       "id": "api_tests_evaluation_routes_test_mockuser_savedevaluations_userfindunique_applicationfindunique_applicationupdate_testsessionfindunique_sessionquestionfindfirst_sessionquestionfindmany_answerupsertunused_poolfindfirst_voideditemfindmany_voideditemupsert_voideditemfindunique_llmproviderfindfirst_evaluationfindunique_evaluationupsert_evaluationfindmany_evaluationupdatemany_executionresultupsert_sessionassessmentupsert_sessionassessmentfindunique_signalfindmany",
@@ -13504,7 +13504,7 @@
       "file_type": "code",
       "norm_label": "{\n  mockuser,\n  savedevaluations,\n  userfindunique,\n  applicationfindunique,\n  applicationupdate,\n  testsessionfindunique,\n  sessionquestionfindfirst,\n  sessionquestionfindmany,\n  answerupsertunused,\n  poolfindfirst,\n  voideditemfindmany,\n  voideditemupsert,\n  voideditemfindunique,\n  llmproviderfindfirst,\n  evaluationfindunique,\n  evaluationupsert,\n  evaluationfindmany,\n  evaluationupdatemany,\n  executionresultupsert,\n  sessionassessmentupsert,\n  sessionassessmentfindunique,\n  signalfindmany,\n}",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L19"
+      "source_location": "L21"
     },
     {
       "id": "api_tests_evaluation_routes_test_now",
@@ -13515,7 +13515,7 @@
       "file_type": "code",
       "norm_label": "now",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L156"
+      "source_location": "L158"
     },
     {
       "id": "api_tests_evaluation_routes_test_pool_items",
@@ -13526,7 +13526,7 @@
       "file_type": "code",
       "norm_label": "pool_items",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L117"
+      "source_location": "L119"
     },
     {
       "id": "api_tests_evaluation_routes_test_session_questions",
@@ -13537,7 +13537,7 @@
       "file_type": "code",
       "norm_label": "session_questions",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L168"
+      "source_location": "L170"
     },
     {
       "id": "api_tests_evaluation_routes_test_session_signals",
@@ -13548,7 +13548,7 @@
       "file_type": "code",
       "norm_label": "session_signals",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L185"
+      "source_location": "L187"
     },
     {
       "id": "api_tests_evaluation_routes_test_token",
@@ -13559,7 +13559,7 @@
       "file_type": "code",
       "norm_label": "token",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L111"
+      "source_location": "L113"
     },
     {
       "id": "api_tests_integration_blueprint_pool_test",
@@ -13573,7 +13573,7 @@
       "source_location": "L1"
     },
     {
-      "id": "api_tests_evaluation_routes_test_rationale_200",
+      "id": "api_tests_evaluation_routes_test_rationale_202",
       "label": "NOTE: the collusion probe also carries sessionId ({ not: ... }) \u2014 branch",
       "_origin": "ast",
       "community": 8,
@@ -13581,7 +13581,7 @@
       "file_type": "rationale",
       "norm_label": "note: the collusion probe also carries sessionid ({ not: ... }) \u2014 branch",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L200"
+      "source_location": "L202"
     },
     {
       "id": "api_package_devdependencies_prisma",
@@ -14339,7 +14339,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/lib/llm/index.ts",
-      "source_location": "L71",
+      "source_location": "L78",
       "weight": 1.0
     },
     {
@@ -14351,7 +14351,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/lib/llm/index.ts",
-      "source_location": "L74",
+      "source_location": "L81",
       "weight": 1.0
     },
     {
@@ -15280,18 +15280,6 @@
     },
     {
       "source": "api_src_modules_admin_llm_providers_service_activateprovider",
-      "target": "api_src_modules_admin_llm_providers_service_getprovideror404",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L88",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_admin_llm_providers_service_activateprovider",
       "target": "api_src_modules_admin_llm_providers_service_toredactedprovider",
       "relation": "calls",
       "_origin": "ast",
@@ -15299,7 +15287,19 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L93",
+      "source_location": "L104",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_admin_llm_providers_service_activateprovider",
+      "target": "api_src_modules_admin_llm_providers_service_getprovideror404",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "api/src/modules/admin/llm-providers.service.ts",
+      "source_location": "L99",
       "weight": 1.0
     },
     {
@@ -15311,7 +15311,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L59",
+      "source_location": "L69",
       "weight": 1.0
     },
     {
@@ -15323,7 +15323,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L69",
+      "source_location": "L80",
       "weight": 1.0
     },
     {
@@ -15335,7 +15335,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L97",
+      "source_location": "L108",
       "weight": 1.0
     },
     {
@@ -15347,7 +15347,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L45",
+      "source_location": "L54",
       "weight": 1.0
     },
     {
@@ -15359,7 +15359,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L110",
+      "source_location": "L121",
       "weight": 1.0
     },
     {
@@ -15371,7 +15371,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L111",
+      "source_location": "L122",
       "weight": 1.0
     },
     {
@@ -15383,7 +15383,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L38",
+      "source_location": "L45",
       "weight": 1.0
     },
     {
@@ -15395,7 +15395,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L73",
+      "source_location": "L84",
       "weight": 1.0
     },
     {
@@ -15407,7 +15407,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L78",
+      "source_location": "L89",
       "weight": 1.0
     },
     {
@@ -15419,7 +15419,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L83",
+      "source_location": "L94",
       "weight": 1.0
     },
     {
@@ -15635,7 +15635,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L294",
+      "source_location": "L297",
       "weight": 1.0
     },
     {
@@ -15647,7 +15647,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L294",
+      "source_location": "L297",
       "weight": 1.0
     },
     {
@@ -15659,7 +15659,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L297",
+      "source_location": "L300",
       "weight": 1.0
     },
     {
@@ -15671,7 +15671,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L309",
+      "source_location": "L312",
       "weight": 1.0
     },
     {
@@ -15683,7 +15683,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L310",
+      "source_location": "L313",
       "weight": 1.0
     },
     {
@@ -15695,7 +15695,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L326",
+      "source_location": "L329",
       "weight": 1.0
     },
     {
@@ -15707,7 +15707,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L379",
+      "source_location": "L382",
       "weight": 1.0
     },
     {
@@ -15719,7 +15719,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L382",
+      "source_location": "L385",
       "weight": 1.0
     },
     {
@@ -15731,7 +15731,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L387",
+      "source_location": "L390",
       "weight": 1.0
     },
     {
@@ -15743,7 +15743,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L421",
+      "source_location": "L424",
       "weight": 1.0
     },
     {
@@ -15755,7 +15755,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L427",
+      "source_location": "L430",
       "weight": 1.0
     },
     {
@@ -15767,7 +15767,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L625",
+      "source_location": "L628",
       "weight": 1.0
     },
     {
@@ -15803,7 +15803,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L198",
+      "source_location": "L201",
       "weight": 1.0
     },
     {
@@ -15815,7 +15815,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L214",
+      "source_location": "L217",
       "weight": 1.0
     },
     {
@@ -15827,7 +15827,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L221",
+      "source_location": "L224",
       "weight": 1.0
     },
     {
@@ -15839,7 +15839,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L256",
+      "source_location": "L259",
       "weight": 1.0
     },
     {
@@ -15851,7 +15851,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L257",
+      "source_location": "L260",
       "weight": 1.0
     },
     {
@@ -15863,7 +15863,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L275",
+      "source_location": "L278",
       "weight": 1.0
     },
     {
@@ -15875,7 +15875,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L153",
+      "source_location": "L154",
       "weight": 1.0
     },
     {
@@ -15887,7 +15887,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L713",
+      "source_location": "L716",
       "weight": 1.0
     },
     {
@@ -15899,7 +15899,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L769",
+      "source_location": "L772",
       "weight": 1.0
     },
     {
@@ -15911,7 +15911,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L782",
+      "source_location": "L785",
       "weight": 1.0
     },
     {
@@ -15923,7 +15923,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L541",
+      "source_location": "L544",
       "weight": 1.0
     },
     {
@@ -15935,7 +15935,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L553",
+      "source_location": "L556",
       "weight": 1.0
     },
     {
@@ -16151,7 +16151,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L69",
+      "source_location": "L74",
       "weight": 1.0
     },
     {
@@ -16163,7 +16163,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L289",
+      "source_location": "L294",
       "weight": 1.0
     },
     {
@@ -16175,7 +16175,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L307",
+      "source_location": "L312",
       "weight": 1.0
     },
     {
@@ -16187,7 +16187,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L317",
+      "source_location": "L322",
       "weight": 1.0
     },
     {
@@ -16199,7 +16199,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L159",
+      "source_location": "L164",
       "weight": 1.0
     },
     {
@@ -16211,7 +16211,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L162",
+      "source_location": "L167",
       "weight": 1.0
     },
     {
@@ -16223,7 +16223,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L165",
+      "source_location": "L170",
       "weight": 1.0
     },
     {
@@ -16235,7 +16235,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L247",
+      "source_location": "L252",
       "weight": 1.0
     },
     {
@@ -16247,7 +16247,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L248",
+      "source_location": "L253",
       "weight": 1.0
     },
     {
@@ -16259,7 +16259,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L193",
+      "source_location": "L198",
       "weight": 1.0
     },
     {
@@ -16295,7 +16295,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L126",
+      "source_location": "L131",
       "weight": 1.0
     },
     {
@@ -16307,7 +16307,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L128",
+      "source_location": "L133",
       "weight": 1.0
     },
     {
@@ -16319,7 +16319,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L154",
+      "source_location": "L159",
       "weight": 1.0
     },
     {
@@ -16331,7 +16331,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L184",
+      "source_location": "L189",
       "weight": 1.0
     },
     {
@@ -16343,7 +16343,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L185",
+      "source_location": "L190",
       "weight": 1.0
     },
     {
@@ -16355,7 +16355,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L186",
+      "source_location": "L191",
       "weight": 1.0
     },
     {
@@ -16367,7 +16367,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L188",
+      "source_location": "L193",
       "weight": 1.0
     },
     {
@@ -16379,7 +16379,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L80",
+      "source_location": "L85",
       "weight": 1.0
     },
     {
@@ -16391,7 +16391,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L226",
+      "source_location": "L231",
       "weight": 1.0
     },
     {
@@ -16403,7 +16403,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L227",
+      "source_location": "L232",
       "weight": 1.0
     },
     {
@@ -16415,7 +16415,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L228",
+      "source_location": "L233",
       "weight": 1.0
     },
     {
@@ -16427,7 +16427,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L440",
+      "source_location": "L446",
       "weight": 1.0
     },
     {
@@ -16439,7 +16439,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L441",
+      "source_location": "L447",
       "weight": 1.0
     },
     {
@@ -16451,7 +16451,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L441",
+      "source_location": "L447",
       "weight": 1.0
     },
     {
@@ -16463,7 +16463,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L442",
+      "source_location": "L449",
       "weight": 1.0
     },
     {
@@ -16475,7 +16475,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L445",
+      "source_location": "L452",
       "weight": 1.0
     },
     {
@@ -16487,7 +16487,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L468",
+      "source_location": "L475",
       "weight": 1.0
     },
     {
@@ -16499,7 +16499,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L491",
+      "source_location": "L498",
       "weight": 1.0
     },
     {
@@ -16511,7 +16511,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L526",
+      "source_location": "L533",
       "weight": 1.0
     },
     {
@@ -16523,7 +16523,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L530",
+      "source_location": "L537",
       "weight": 1.0
     },
     {
@@ -16535,7 +16535,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L546",
+      "source_location": "L553",
       "weight": 1.0
     },
     {
@@ -16547,7 +16547,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L342",
+      "source_location": "L347",
       "weight": 1.0
     },
     {
@@ -16559,7 +16559,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L343",
+      "source_location": "L348",
       "weight": 1.0
     },
     {
@@ -16571,7 +16571,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L364",
+      "source_location": "L370",
       "weight": 1.0
     },
     {
@@ -16583,7 +16583,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L369",
+      "source_location": "L375",
       "weight": 1.0
     },
     {
@@ -16595,7 +16595,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L391",
+      "source_location": "L397",
       "weight": 1.0
     },
     {
@@ -16607,7 +16607,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L397",
+      "source_location": "L403",
       "weight": 1.0
     },
     {
@@ -16619,7 +16619,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L397",
+      "source_location": "L403",
       "weight": 1.0
     },
     {
@@ -16631,7 +16631,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L206",
+      "source_location": "L211",
       "weight": 1.0
     },
     {
@@ -16643,7 +16643,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L207",
+      "source_location": "L212",
       "weight": 1.0
     },
     {
@@ -16655,7 +16655,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L213",
+      "source_location": "L218",
       "weight": 1.0
     },
     {
@@ -16667,7 +16667,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L215",
+      "source_location": "L220",
       "weight": 1.0
     },
     {
@@ -16679,7 +16679,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L216",
+      "source_location": "L221",
       "weight": 1.0
     },
     {
@@ -16691,7 +16691,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L112",
+      "source_location": "L117",
       "weight": 1.0
     },
     {
@@ -16703,7 +16703,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L138",
+      "source_location": "L142",
       "weight": 1.0
     },
     {
@@ -16715,7 +16715,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L140",
+      "source_location": "L144",
       "weight": 1.0
     },
     {
@@ -16727,7 +16727,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L142",
+      "source_location": "L146",
       "weight": 1.0
     },
     {
@@ -16739,7 +16739,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L46",
+      "source_location": "L50",
       "weight": 1.0
     },
     {
@@ -16751,36 +16751,12 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L111",
+      "source_location": "L115",
       "weight": 1.0
     },
     {
       "source": "api_src_modules_jobs_jd_service_editdraft",
       "target": "api_src_modules_jobs_jd_service_getscopedjob",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L122",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_jobs_jd_service_editdraft",
-      "target": "api_src_lib_http_apperror",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L124",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_jobs_jd_service_editdraft",
-      "target": "api_src_modules_jobs_jd_service_isplainobject",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -16792,6 +16768,30 @@
     },
     {
       "source": "api_src_modules_jobs_jd_service_editdraft",
+      "target": "api_src_lib_http_apperror",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "api/src/modules/jobs/jd.service.ts",
+      "source_location": "L128",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_jobs_jd_service_editdraft",
+      "target": "api_src_modules_jobs_jd_service_isplainobject",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "api/src/modules/jobs/jd.service.ts",
+      "source_location": "L130",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_jobs_jd_service_editdraft",
       "target": "api_src_modules_jobs_jd_service_deepmerge",
       "relation": "calls",
       "_origin": "ast",
@@ -16799,7 +16799,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L127",
+      "source_location": "L131",
       "weight": 1.0
     },
     {
@@ -16811,7 +16811,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L88",
+      "source_location": "L92",
       "weight": 1.0
     },
     {
@@ -16823,7 +16823,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L93",
+      "source_location": "L97",
       "weight": 1.0
     },
     {
@@ -16847,7 +16847,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L182",
+      "source_location": "L186",
       "weight": 1.0
     },
     {
@@ -16859,7 +16859,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L195",
+      "source_location": "L199",
       "weight": 1.0
     },
     {
@@ -16871,7 +16871,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L199",
+      "source_location": "L204",
       "weight": 1.0
     },
     {
@@ -16883,7 +16883,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L205",
+      "source_location": "L210",
       "weight": 1.0
     },
     {
@@ -16895,7 +16895,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L224",
+      "source_location": "L229",
       "weight": 1.0
     },
     {
@@ -18347,7 +18347,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L308",
+      "source_location": "L311",
       "weight": 1.0
     },
     {
@@ -18359,7 +18359,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L308",
+      "source_location": "L311",
       "weight": 1.0
     },
     {
@@ -18371,7 +18371,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L232",
+      "source_location": "L235",
       "weight": 1.0
     },
     {
@@ -18383,7 +18383,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L91",
+      "source_location": "L93",
       "weight": 1.0
     },
     {
@@ -18395,7 +18395,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L120",
+      "source_location": "L122",
       "weight": 1.0
     },
     {
@@ -18407,7 +18407,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L105",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -19619,7 +19619,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L280",
+      "source_location": "L283",
       "weight": 1.0
     },
     {
@@ -19631,7 +19631,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L286",
+      "source_location": "L289",
       "weight": 1.0
     },
     {
@@ -19643,7 +19643,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L111",
+      "source_location": "L113",
       "weight": 1.0
     },
     {
@@ -19655,7 +19655,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L84",
+      "source_location": "L86",
       "weight": 1.0
     },
     {
@@ -19667,7 +19667,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L97",
+      "source_location": "L99",
       "weight": 1.0
     },
     {
@@ -25463,7 +25463,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L108",
+      "source_location": "L110",
       "weight": 1.0
     },
     {
@@ -25475,7 +25475,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L14",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -25487,7 +25487,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L15",
+      "source_location": "L17",
       "weight": 1.0
     },
     {
@@ -25499,7 +25499,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L16",
+      "source_location": "L18",
       "weight": 1.0
     },
     {
@@ -25511,7 +25511,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L17",
+      "source_location": "L19",
       "weight": 1.0
     },
     {
@@ -27611,7 +27611,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L10",
+      "source_location": "L12",
       "weight": 1.0
     },
     {
@@ -27623,7 +27623,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L10",
+      "source_location": "L12",
       "weight": 1.0
     },
     {
@@ -27635,7 +27635,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L11",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -27647,7 +27647,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L11",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -27659,7 +27659,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L11",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -27671,7 +27671,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L11",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -27683,7 +27683,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L17",
+      "source_location": "L19",
       "weight": 1.0
     },
     {
@@ -27695,7 +27695,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L17",
+      "source_location": "L19",
       "weight": 1.0
     },
     {
@@ -27707,7 +27707,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L17",
+      "source_location": "L19",
       "weight": 1.0
     },
     {
@@ -32387,7 +32387,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L108",
+      "source_location": "L110",
       "weight": 1.0
     },
     {
@@ -32399,7 +32399,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L14",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -32411,7 +32411,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L15",
+      "source_location": "L17",
       "weight": 1.0
     },
     {
@@ -32423,7 +32423,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L16",
+      "source_location": "L18",
       "weight": 1.0
     },
     {
@@ -32435,7 +32435,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L17",
+      "source_location": "L19",
       "weight": 1.0
     },
     {
@@ -33287,7 +33287,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L10",
+      "source_location": "L12",
       "weight": 1.0
     },
     {
@@ -33299,7 +33299,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L11",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -33311,7 +33311,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L17",
+      "source_location": "L19",
       "weight": 1.0
     },
     {
@@ -35815,7 +35815,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/lib/llm/index.ts",
-      "source_location": "L60",
+      "source_location": "L65",
       "weight": 1.0
     },
     {
@@ -37118,13 +37118,24 @@
     },
     {
       "source": "api_src_modules_admin_llm_providers_service",
+      "target": "api_src_modules_admin_llm_providers_service_deleteprovider",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/src/modules/admin/llm-providers.service.ts",
+      "source_location": "L107",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_admin_llm_providers_service",
       "target": "api_src_modules_admin_llm_providers_service_smoketestresult",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L101",
+      "source_location": "L112",
       "weight": 1.0
     },
     {
@@ -37135,73 +37146,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L109",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_admin_llm_providers_service",
-      "target": "api_src_modules_admin_llm_providers_service_toredactedprovider",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L20",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_admin_llm_providers_service",
-      "target": "api_src_modules_admin_llm_providers_service_getprovideror404",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L42",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_admin_llm_providers_service",
-      "target": "api_src_modules_admin_llm_providers_service_listproviders",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L50",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_admin_llm_providers_service",
-      "target": "api_src_modules_admin_llm_providers_service_createprovider",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L55",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_admin_llm_providers_service",
-      "target": "api_src_modules_admin_llm_providers_service_updateprovider",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L72",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_admin_llm_providers_service",
-      "target": "api_src_modules_admin_llm_providers_service_activateprovider",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L87",
+      "source_location": "L120",
       "weight": 1.0
     },
     {
@@ -37212,18 +37157,73 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L9",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
       "source": "api_src_modules_admin_llm_providers_service",
-      "target": "api_src_modules_admin_llm_providers_service_deleteprovider",
+      "target": "api_src_modules_admin_llm_providers_service_toredactedprovider",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L96",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_admin_llm_providers_service",
+      "target": "api_src_modules_admin_llm_providers_service_getprovideror404",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/src/modules/admin/llm-providers.service.ts",
+      "source_location": "L49",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_admin_llm_providers_service",
+      "target": "api_src_modules_admin_llm_providers_service_listproviders",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/src/modules/admin/llm-providers.service.ts",
+      "source_location": "L59",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_admin_llm_providers_service",
+      "target": "api_src_modules_admin_llm_providers_service_createprovider",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/src/modules/admin/llm-providers.service.ts",
+      "source_location": "L64",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_admin_llm_providers_service",
+      "target": "api_src_modules_admin_llm_providers_service_updateprovider",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/src/modules/admin/llm-providers.service.ts",
+      "source_location": "L83",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_admin_llm_providers_service",
+      "target": "api_src_modules_admin_llm_providers_service_activateprovider",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/src/modules/admin/llm-providers.service.ts",
+      "source_location": "L98",
       "weight": 1.0
     },
     {
@@ -37421,7 +37421,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L151",
+      "source_location": "L152",
       "weight": 1.0
     },
     {
@@ -37432,7 +37432,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L161",
+      "source_location": "L162",
       "weight": 1.0
     },
     {
@@ -37443,7 +37443,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L172",
+      "source_location": "L173",
       "weight": 1.0
     },
     {
@@ -37454,7 +37454,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L189",
+      "source_location": "L190",
       "weight": 1.0
     },
     {
@@ -37465,7 +37465,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L283",
+      "source_location": "L286",
       "weight": 1.0
     },
     {
@@ -37476,18 +37476,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L449",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_applications_evaluation_service",
-      "target": "api_src_modules_applications_evaluation_service_topictallies",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L458",
+      "source_location": "L452",
       "weight": 1.0
     },
     {
@@ -37499,6 +37488,17 @@
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
       "source_location": "L46",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_applications_evaluation_service",
+      "target": "api_src_modules_applications_evaluation_service_topictallies",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/src/modules/applications/evaluation.service.ts",
+      "source_location": "L461",
       "weight": 1.0
     },
     {
@@ -37520,7 +37520,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L490",
+      "source_location": "L493",
       "weight": 1.0
     },
     {
@@ -37542,7 +37542,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L528",
+      "source_location": "L531",
       "weight": 1.0
     },
     {
@@ -37564,7 +37564,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L612",
+      "source_location": "L615",
       "weight": 1.0
     },
     {
@@ -37597,7 +37597,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L707",
+      "source_location": "L710",
       "weight": 1.0
     },
     {
@@ -37943,13 +37943,24 @@
     },
     {
       "source": "api_src_modules_jobs_blueprint_service",
+      "target": "api_src_modules_jobs_blueprint_service_formatsummary",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/src/modules/jobs/blueprint.service.ts",
+      "source_location": "L101",
+      "weight": 1.0
+    },
+    {
+      "source": "api_src_modules_jobs_blueprint_service",
       "target": "api_src_modules_jobs_blueprint_service_toblueprintdto",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L102",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -37960,7 +37971,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L125",
+      "source_location": "L130",
       "weight": 1.0
     },
     {
@@ -37971,7 +37982,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L158",
+      "source_location": "L163",
       "weight": 1.0
     },
     {
@@ -37982,7 +37993,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L183",
+      "source_location": "L188",
       "weight": 1.0
     },
     {
@@ -37993,7 +38004,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L192",
+      "source_location": "L197",
       "weight": 1.0
     },
     {
@@ -38004,7 +38015,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L205",
+      "source_location": "L210",
       "weight": 1.0
     },
     {
@@ -38015,7 +38026,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L225",
+      "source_location": "L230",
       "weight": 1.0
     },
     {
@@ -38026,7 +38037,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L246",
+      "source_location": "L251",
       "weight": 1.0
     },
     {
@@ -38037,7 +38048,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L265",
+      "source_location": "L270",
       "weight": 1.0
     },
     {
@@ -38048,7 +38059,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L279",
+      "source_location": "L284",
       "weight": 1.0
     },
     {
@@ -38059,7 +38070,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L336",
+      "source_location": "L341",
       "weight": 1.0
     },
     {
@@ -38070,7 +38081,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L420",
+      "source_location": "L426",
       "weight": 1.0
     },
     {
@@ -38103,7 +38114,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L66",
+      "source_location": "L68",
       "weight": 1.0
     },
     {
@@ -38114,7 +38125,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L77",
+      "source_location": "L82",
       "weight": 1.0
     },
     {
@@ -38125,18 +38136,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L88",
-      "weight": 1.0
-    },
-    {
-      "source": "api_src_modules_jobs_blueprint_service",
-      "target": "api_src_modules_jobs_blueprint_service_formatsummary",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L96",
+      "source_location": "L93",
       "weight": 1.0
     },
     {
@@ -38257,7 +38257,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L103",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -38268,7 +38268,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L108",
+      "source_location": "L112",
       "weight": 1.0
     },
     {
@@ -38279,7 +38279,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L121",
+      "source_location": "L125",
       "weight": 1.0
     },
     {
@@ -38290,7 +38290,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L137",
+      "source_location": "L141",
       "weight": 1.0
     },
     {
@@ -38301,7 +38301,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L172",
+      "source_location": "L176",
       "weight": 1.0
     },
     {
@@ -38345,7 +38345,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/jobs/jd.service.ts",
-      "source_location": "L87",
+      "source_location": "L91",
       "weight": 1.0
     },
     {
@@ -40094,7 +40094,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L110",
+      "source_location": "L112",
       "weight": 1.0
     },
     {
@@ -40105,7 +40105,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L111",
+      "source_location": "L113",
       "weight": 1.0
     },
     {
@@ -40116,7 +40116,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L112",
+      "source_location": "L114",
       "weight": 1.0
     },
     {
@@ -40127,7 +40127,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L117",
+      "source_location": "L119",
       "weight": 1.0
     },
     {
@@ -40138,7 +40138,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L154",
+      "source_location": "L156",
       "weight": 1.0
     },
     {
@@ -40149,7 +40149,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L156",
+      "source_location": "L158",
       "weight": 1.0
     },
     {
@@ -40160,7 +40160,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L158",
+      "source_location": "L160",
       "weight": 1.0
     },
     {
@@ -40171,7 +40171,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L168",
+      "source_location": "L170",
       "weight": 1.0
     },
     {
@@ -40182,18 +40182,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L185",
-      "weight": 1.0
-    },
-    {
-      "source": "api_tests_evaluation_routes_test",
-      "target": "api_tests_evaluation_routes_test_mockuser_savedevaluations_userfindunique_applicationfindunique_applicationupdate_testsessionfindunique_sessionquestionfindfirst_sessionquestionfindmany_answerupsertunused_poolfindfirst_voideditemfindmany_voideditemupsert_voideditemfindunique_llmproviderfindfirst_evaluationfindunique_evaluationupsert_evaluationfindmany_evaluationupdatemany_executionresultupsert_sessionassessmentupsert_sessionassessmentfindunique_signalfindmany",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L19",
+      "source_location": "L187",
       "weight": 1.0
     },
     {
@@ -40204,7 +40193,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L191",
+      "source_location": "L193",
+      "weight": 1.0
+    },
+    {
+      "source": "api_tests_evaluation_routes_test",
+      "target": "api_tests_evaluation_routes_test_mockuser_savedevaluations_userfindunique_applicationfindunique_applicationupdate_testsessionfindunique_sessionquestionfindfirst_sessionquestionfindmany_answerupsertunused_poolfindfirst_voideditemfindmany_voideditemupsert_voideditemfindunique_llmproviderfindfirst_evaluationfindunique_evaluationupsert_evaluationfindmany_evaluationupdatemany_executionresultupsert_sessionassessmentupsert_sessionassessmentfindunique_signalfindmany",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "api/tests/evaluation-routes.test.ts",
+      "source_location": "L21",
       "weight": 1.0
     },
     {
@@ -40215,7 +40215,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L256",
+      "source_location": "L258",
       "weight": 1.0
     },
     {
@@ -40226,7 +40226,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L274",
+      "source_location": "L276",
       "weight": 1.0
     },
     {
@@ -42563,29 +42563,18 @@
     },
     {
       "source": "web_src_admin_providerspage",
-      "target": "web_src_admin_providerspage_kinds",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L19",
-      "weight": 1.0
-    },
-    {
-      "source": "web_src_admin_providerspage",
       "target": "web_src_admin_providerspage_providerrow",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L192",
+      "source_location": "L195",
       "weight": 1.0
     },
     {
       "source": "web_src_admin_providerspage",
-      "target": "web_src_admin_providerspage_kind_label",
+      "target": "web_src_admin_providerspage_kinds",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -42596,13 +42585,13 @@
     },
     {
       "source": "web_src_admin_providerspage",
-      "target": "web_src_admin_providerspage_base_url_placeholder",
+      "target": "web_src_admin_providerspage_kind_label",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L27",
+      "source_location": "L23",
       "weight": 1.0
     },
     {
@@ -42613,7 +42602,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L271",
+      "source_location": "L274",
+      "weight": 1.0
+    },
+    {
+      "source": "web_src_admin_providerspage",
+      "target": "web_src_admin_providerspage_base_url_placeholder",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "web/src/admin/ProvidersPage.tsx",
+      "source_location": "L29",
       "weight": 1.0
     },
     {
@@ -42624,7 +42624,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L33",
+      "source_location": "L35",
       "weight": 1.0
     },
     {
@@ -42635,7 +42635,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L384",
+      "source_location": "L387",
       "weight": 1.0
     },
     {
@@ -42646,7 +42646,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L39",
+      "source_location": "L41",
       "weight": 1.0
     },
     {
@@ -42657,7 +42657,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L54",
+      "source_location": "L56",
       "weight": 1.0
     },
     {
@@ -42668,7 +42668,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/admin/ProvidersPage.tsx",
-      "source_location": "L56",
+      "source_location": "L58",
       "weight": 1.0
     },
     {
@@ -44998,7 +44998,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L450",
+      "source_location": "L453",
       "weight": 1.0
     },
     {
@@ -45046,14 +45046,14 @@
       "weight": 1.0
     },
     {
-      "source": "api_tests_evaluation_routes_test_rationale_200",
+      "source": "api_tests_evaluation_routes_test_rationale_202",
       "target": "api_tests_evaluation_routes_test",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/tests/evaluation-routes.test.ts",
-      "source_location": "L200",
+      "source_location": "L202",
       "weight": 1.0
     },
     {
@@ -45065,7 +45065,7 @@
       "confidence_score": 0.8,
       "context": "call",
       "source_file": "api/src/modules/applications/evaluation.service.ts",
-      "source_location": "L162",
+      "source_location": "L163",
       "weight": 1.0
     },
     {
@@ -45077,7 +45077,7 @@
       "confidence_score": 0.8,
       "context": "call",
       "source_file": "api/src/modules/jobs/blueprint.service.ts",
-      "source_location": "L284",
+      "source_location": "L289",
       "weight": 1.0
     },
     {
@@ -45125,7 +45125,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "api/src/modules/admin/llm-providers.router.ts",
-      "source_location": "L17",
+      "source_location": "L20",
       "weight": 1.0
     },
     {
@@ -45137,7 +45137,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "api/src/modules/admin/llm-providers.service.ts",
-      "source_location": "L52",
+      "source_location": "L61",
       "weight": 1.0
     },
     {
@@ -45370,5 +45370,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "cd595a17e910002267eb467497316cae60d11d57"
+  "built_at_commit": "6040b28a8f745e82196d7e4d4d1c640d3d45693e"
 }

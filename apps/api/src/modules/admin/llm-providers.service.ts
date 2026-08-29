@@ -5,6 +5,13 @@ import { encryptSecret, decryptSecret } from '../../lib/crypto';
 import { buildAdapterFromProvider } from '../../lib/llm';
 import type { CreateProviderInput, UpdateProviderInput } from './llm-providers.schema';
 
+// V2-2 (PLAN.md §12 D20): providers are company-scoped tenant resources.
+// Every function below takes the caller's companyId and every query filters
+// on it — a provider of another company is indistinguishable from a missing
+// one (same 404, no existence oracle). Routes pass req.user!.companyId!,
+// guaranteed non-null because requireRole('ADMIN') never admits the
+// company-less SUPER_ADMIN.
+
 /** What any admin endpoint may reveal about a provider. No ciphertext, no key — last 4 only. */
 export interface RedactedProvider {
   id: string;
@@ -39,21 +46,24 @@ export function toRedactedProvider(p: {
   };
 }
 
-async function getProviderOr404(id: string): Promise<LlmProvider> {
-  const provider = await prisma.llmProvider.findUnique({ where: { id } });
+async function getProviderOr404(id: string, companyId: string): Promise<LlmProvider> {
+  // findFirst, not findUnique: the companyId half of the compound lookup is a
+  // filter, so another company's provider resolves to the same 404.
+  const provider = await prisma.llmProvider.findFirst({ where: { id, companyId } });
   if (!provider) {
     throw new AppError(404, 'LLM provider not found', 'NOT_FOUND');
   }
   return provider;
 }
 
-export async function listProviders(): Promise<RedactedProvider[]> {
-  const rows = await prisma.llmProvider.findMany({ orderBy: { createdAt: 'asc' } });
+export async function listProviders(companyId: string): Promise<RedactedProvider[]> {
+  const rows = await prisma.llmProvider.findMany({ where: { companyId }, orderBy: { createdAt: 'asc' } });
   return rows.map(toRedactedProvider);
 }
 
-export async function createProvider(input: CreateProviderInput): Promise<RedactedProvider> {
+export async function createProvider(companyId: string, input: CreateProviderInput): Promise<RedactedProvider> {
   const data = {
+    companyId,
     kind: input.kind,
     baseUrl: input.baseUrl ?? '',
     apiKeyEncrypted: encryptSecret(input.apiKey),
@@ -62,15 +72,16 @@ export async function createProvider(input: CreateProviderInput): Promise<Redact
   };
   const row = input.isActive
     ? await prisma.$transaction(async (tx) => {
-        await tx.llmProvider.updateMany({ data: { isActive: false } });
+        // Deactivate only THIS company's providers — per-company single-active.
+        await tx.llmProvider.updateMany({ where: { companyId }, data: { isActive: false } });
         return tx.llmProvider.create({ data: { ...data, isActive: true } });
       })
     : await prisma.llmProvider.create({ data });
   return toRedactedProvider(row);
 }
 
-export async function updateProvider(id: string, input: UpdateProviderInput): Promise<RedactedProvider> {
-  await getProviderOr404(id);
+export async function updateProvider(companyId: string, id: string, input: UpdateProviderInput): Promise<RedactedProvider> {
+  await getProviderOr404(id, companyId);
   const row = await prisma.llmProvider.update({
     where: { id },
     data: {
@@ -83,18 +94,18 @@ export async function updateProvider(id: string, input: UpdateProviderInput): Pr
   return toRedactedProvider(row);
 }
 
-/** The only code path that changes which provider is active. */
-export async function activateProvider(id: string): Promise<RedactedProvider> {
-  await getProviderOr404(id);
+/** The only code path that changes which provider is active (per company). */
+export async function activateProvider(companyId: string, id: string): Promise<RedactedProvider> {
+  await getProviderOr404(id, companyId);
   const row = await prisma.$transaction(async (tx) => {
-    await tx.llmProvider.updateMany({ where: { isActive: true }, data: { isActive: false } });
+    await tx.llmProvider.updateMany({ where: { companyId, isActive: true }, data: { isActive: false } });
     return tx.llmProvider.update({ where: { id }, data: { isActive: true } });
   });
   return toRedactedProvider(row);
 }
 
-export async function deleteProvider(id: string): Promise<void> {
-  await getProviderOr404(id);
+export async function deleteProvider(companyId: string, id: string): Promise<void> {
+  await getProviderOr404(id, companyId);
   await prisma.llmProvider.delete({ where: { id } });
 }
 
@@ -106,8 +117,8 @@ export interface SmokeTestResult {
 }
 
 /** Sends a minimal real request through the provider's adapter. Failures propagate as LlmError. */
-export async function smokeTest(id: string): Promise<SmokeTestResult> {
-  const provider = await getProviderOr404(id);
+export async function smokeTest(companyId: string, id: string): Promise<SmokeTestResult> {
+  const provider = await getProviderOr404(id, companyId);
   const adapter = buildAdapterFromProvider(provider);
   const startedAt = Date.now();
   const res = await adapter.chat({

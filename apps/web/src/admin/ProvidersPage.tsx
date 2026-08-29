@@ -2,9 +2,11 @@
 //
 // Wraps the /api/admin/llm-providers contract (llm-providers.router.ts):
 // GET list · POST add · POST /:id/activate · POST /:id/test · DELETE /:id.
-// Exactly one provider is active at a time — the one every AI feature uses.
-// API keys are write-only: the API encrypts them at rest and returns only the
-// last 4 characters; this screen never renders anything else.
+// Providers are YOUR COMPANY'S (V2-2): the list is server-side company-
+// filtered, and exactly one of them is active at a time per company — the one
+// every AI feature uses. API keys are write-only: the API encrypts them at
+// rest and returns only the last 4 characters; this screen never renders
+// anything else.
 
 import { useEffect, useState } from 'react';
 import { api, errMessage } from '../api/client';
@@ -128,9 +130,10 @@ export default function ProvidersPage(): JSX.Element {
     <main className="page">
       <h1>LLM providers</h1>
       <p className="sub">
-        Exactly one provider is <strong>active</strong> at a time — the one every AI feature uses
-        (JD drafting, evaluation). API keys are encrypted at rest and never leave the server; the
-        list only ever shows their last 4 characters. See <code>docs/SELF_HOSTING.md</code>.
+        These are your company&rsquo;s providers — exactly one is <strong>active</strong> at a time,
+        and it is the one every AI feature uses (JD drafting, evaluation). API keys are encrypted
+        at rest and never leave the server; the list only ever shows their last 4 characters. See{' '}
+        <code>docs/SELF_HOSTING.md</code>.
       </p>
 
       {error !== null && <ApiErrorScreen err={error} />}

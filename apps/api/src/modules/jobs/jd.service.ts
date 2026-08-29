@@ -38,10 +38,14 @@ export async function createIntake(
   user: AuthUser,
   input: IntakeInput,
 ): Promise<{ job: { id: string; title: string; status: string; jdStatus: string | null }; queued: true }> {
-  // Fail BEFORE creating anything if there is no provider — otherwise the job
-  // would sit in JD_DRAFTING forever with every queue attempt dying on
-  // NO_PROVIDER.
-  const provider = await prisma.llmProvider.findFirst({ where: { isActive: true }, select: { id: true } });
+  // Fail BEFORE creating anything if the COMPANY has no provider — otherwise
+  // the job would sit in JD_DRAFTING forever with every queue attempt dying on
+  // NO_PROVIDER. Company-scoped since V2-2: the check must fail on exactly the
+  // condition the worker will hit (getActiveAdapter(job.companyId)).
+  const provider = await prisma.llmProvider.findFirst({
+    where: { companyId: user.companyId!, isActive: true },
+    select: { id: true },
+  });
   if (!provider) {
     throw new AppError(
       503,
@@ -196,7 +200,8 @@ export async function runJdGeneration(jobId: string): Promise<void> {
       .filter((s) => s.mediaType === 'image/png' || s.mediaType === 'image/jpeg' || s.mediaType === 'image/webp')
       .map((s) => ({ mediaType: s.mediaType, base64: s.base64 }));
 
-    const { adapter } = await getActiveAdapter();
+    // V2-2: the job's company's provider — never another tenant's.
+    const { adapter } = await getActiveAdapter(job.companyId);
     const res = await adapter.chat({
       system: JD_SYSTEM_PROMPT,
       messages: [

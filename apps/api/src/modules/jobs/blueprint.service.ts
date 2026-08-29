@@ -62,9 +62,14 @@ function parseSections(raw: Prisma.JsonValue): BlueprintSection[] {
   return parsed.data;
 }
 
-/** Fail fast (503) when no LLM provider is active — before enqueueing work. */
-async function assertProvider(): Promise<void> {
-  const provider = await prisma.llmProvider.findFirst({ where: { isActive: true }, select: { id: true } });
+/** Fail fast (503) when the company has no active LLM provider — before
+ * enqueueing work. Company-scoped since V2-2: the check must fail on exactly
+ * the condition the worker will hit (getActiveAdapter(job.companyId)). */
+async function assertProvider(companyId: string): Promise<void> {
+  const provider = await prisma.llmProvider.findFirst({
+    where: { companyId, isActive: true },
+    select: { id: true },
+  });
   if (!provider) {
     throw new AppError(
       503,
@@ -183,7 +188,7 @@ export async function getBlueprint(user: AuthUser, jobId: string) {
 export async function requestSamples(user: AuthUser, jobId: string) {
   await getScopedJob(user, jobId);
   await requireBlueprint(jobId, 'requesting samples');
-  await assertProvider();
+  await assertProvider(user.companyId!);
   await prisma.sampleItem.deleteMany({ where: { jobId } });
   await enqueue('SAMPLES_GENERATION', { jobId });
 }
@@ -212,7 +217,7 @@ export async function sealPool(user: AuthUser, jobId: string) {
   if (active) {
     throw new AppError(409, 'Pool already sealed — use POST /pool/reseal to regenerate', 'POOL_SEALED');
   }
-  await assertProvider();
+  await assertProvider(user.companyId!);
   await enqueue('POOL_SEAL', { jobId, reseal: false });
 }
 
@@ -225,7 +230,7 @@ export async function sealPool(user: AuthUser, jobId: string) {
 export async function resealPool(user: AuthUser, jobId: string) {
   await getScopedJob(user, jobId);
   await requireBlueprint(jobId, 're-sealing');
-  await assertProvider();
+  await assertProvider(user.companyId!);
   await prisma.$transaction(async (tx) => {
     await tx.sealedQuestionPool.updateMany({ where: { jobId, isActive: true }, data: { isActive: false } });
     await tx.jobQueue.create({
@@ -361,7 +366,8 @@ export async function runSamplesGeneration(jobId: string): Promise<void> {
     picks.push({ section, format: formats[cursor % formats.length] });
   }
 
-  const { adapter } = await getActiveAdapter();
+  // V2-2: the job's company's provider — never another tenant's.
+  const { adapter } = await getActiveAdapter(job.companyId);
   const valid: AssessmentItem[] = [];
   let skipped = 0;
   for (const pick of picks) {
@@ -439,7 +445,8 @@ export async function runPoolSeal(jobId: string, reseal = false): Promise<void> 
 
   const sections = parseSections(blueprint.sections);
   const required = requiredPoolSizes(drawSizes({ sections }));
-  const { adapter } = await getActiveAdapter();
+  // V2-2: the job's company's provider — never another tenant's.
+  const { adapter } = await getActiveAdapter(job.companyId);
 
   const items: AssessmentItem[] = [];
   const tally = countByFormat([]); // running per-format counts

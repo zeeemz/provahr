@@ -135,8 +135,9 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
-  jobs  Job[]
+  users        User[]
+  jobs         Job[]
+  llmProviders LlmProvider[]
 
   @@map("companies")
 }
@@ -331,15 +332,24 @@ enum LlmProviderKind {
   AZURE_OPENAI
 }
 
-/// Admin-configured LLM provider credentials. Exactly one row is active at a
-/// time — enforced by the admin service's deactivate-then-activate transaction
-/// AND, since migration 0001_init, by a migration-managed partial unique index
+/// Admin-configured LLM provider credentials. Exactly one row is active PER
+/// COMPANY (V2-2, PLAN.md §12 D20) — enforced by the admin service's
+/// deactivate-then-activate transaction (scoped to the company) AND, since
+/// migration 0003_tenant_llm, by a migration-managed partial unique index
 ///   CREATE UNIQUE INDEX "llm_providers_single_active_idx"
-///     ON "llm_providers" ((true)) WHERE "isActive";
-/// closing the QA wave-2 F3 READ COMMITTED race. That index is NOT
-/// expressible in Prisma schema language — documented drift risk: `db push`
-/// and future `migrate dev` diffs do not know about it; a database recreated
-/// without migrations loses it (the Company singleton note above applies too).
+///     ON "llm_providers" ("companyId") WHERE "isActive";
+/// closing the QA wave-2 F3 READ COMMITTED race. (0001_init created the same
+/// index name on ((true)) — one active GLOBALLY — 0003 recreates it per
+/// company.) That index is NOT expressible in Prisma schema language —
+/// documented drift risk: `db push` and future `migrate dev` diffs do not know
+/// about it; a database recreated without migrations loses it (the Company
+/// singleton note above applies too).
+///
+/// `companyId` is nullable for the migration-safe rollout: pre-V2.2 rows keep
+/// null and are unusable legacy — every read path filters `companyId =
+/// <caller's company>`, which a null row never matches. V2-3's hardening
+/// backfills a real company (or deletes the rows) and makes the column
+/// required.
 ///
 /// `apiKeyEncrypted` is an AES-256-GCM secret box produced by src/lib/crypto.ts
 /// (format: `v1.<iv>.<authTag>.<ciphertext>`, base64url segments) — the raw key
@@ -355,6 +365,9 @@ enum LlmProviderKind {
 ///   is fixed by the adapter. See docs/SELF_HOSTING.md.
 model LlmProvider {
   id              String          @id @default(cuid())
+  // Company scoping (V2-2, D20) — nullable until V2-3's backfill hardening.
+  companyId       String?
+  company         Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   kind            LlmProviderKind
   baseUrl         String
   apiKeyEncrypted String
@@ -364,6 +377,7 @@ model LlmProvider {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
+  @@index([companyId])
   @@map("llm_providers")
 }
 

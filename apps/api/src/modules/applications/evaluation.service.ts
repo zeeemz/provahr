@@ -144,13 +144,14 @@ async function loadActivePoolItems(jobId: string): Promise<Map<string, Assessmen
 }
 
 /**
- * Resolves the active LLM adapter ONCE, or null when no provider is
- * configured (deterministic scoring proceeds; LLM-only grading degrades —
- * see runEvaluation). Any other failure propagates for a queue retry.
+ * Resolves the company's active LLM adapter ONCE, or null when the company has
+ * no provider configured (deterministic scoring proceeds; LLM-only grading
+ * degrades — see runEvaluation). Any other failure propagates for a queue
+ * retry.
  */
-async function tryGetAdapter(): Promise<LlmAdapter | null> {
+async function tryGetAdapter(companyId: string): Promise<LlmAdapter | null> {
   try {
-    return (await getActiveAdapter()).adapter;
+    return (await getActiveAdapter(companyId)).adapter;
   } catch (err) {
     if (err instanceof AppError && err.code === 'NO_PROVIDER') return null;
     throw err;
@@ -189,7 +190,9 @@ interface QuestionRow {
 export async function runEvaluation(sessionId: string): Promise<void> {
   const session = await prisma.testSession.findUnique({
     where: { id: sessionId },
-    select: { id: true, jobId: true, status: true },
+    // job.companyId rides along (V2-2): the session's company decides which
+    // tenant's LLM provider grades it — one select, no extra round trip.
+    select: { id: true, jobId: true, status: true, job: { select: { companyId: true } } },
   });
   if (!session) return; // session vanished — nothing to evaluate (queue no-op)
   if (session.status !== 'SUBMITTED') {
@@ -218,7 +221,7 @@ export async function runEvaluation(sessionId: string): Promise<void> {
   });
   const voidedItemIds = new Set(voidedRows.map((r) => r.itemId));
 
-  const adapter = await tryGetAdapter();
+  const adapter = await tryGetAdapter(session.job.companyId);
   let executor: SandboxExecutor | null = null; // lazy: swipe/mcq-only sessions never build it
 
   /** Item ids that cannot be fairly scored this run (pool drift / needs LLM). */

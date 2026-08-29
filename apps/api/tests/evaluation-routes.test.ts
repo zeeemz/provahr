@@ -7,7 +7,9 @@
 // The LLM adapter is NEVER called in this file: prisma.llmProvider.findFirst
 // resolves null, so getActiveAdapter fails with NO_PROVIDER and the service
 // degrades to deterministic scoring exactly as production would without a
-// configured provider.
+// configured provider. Since V2-2 the probe is company-scoped
+// (getActiveAdapter(session.job.companyId)) — the runEvaluation fixtures carry
+// job.companyId and the provider probe's where clause is asserted below.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
@@ -194,7 +196,7 @@ function primeRunEvaluation() {
   mockUser.value = { ...mockUser.value, role: 'RECRUITER', companyId: 'company-1' };
 
   userFindUnique.mockImplementation(async () => mockUser.value);
-  testSessionFindUnique.mockResolvedValue({ id: 'sess-1', jobId: 'job-1', status: 'SUBMITTED' });
+  testSessionFindUnique.mockResolvedValue({ id: 'sess-1', jobId: 'job-1', status: 'SUBMITTED', job: { companyId: 'company-1' } });
   sessionQuestionFindMany.mockImplementation(async (args: { where: Record<string, unknown> }) => {
     const where = args?.where ?? {};
     // NOTE: the collusion probe also carries sessionId ({ not: ... }) — branch
@@ -473,7 +475,16 @@ describe('runEvaluation — swipe+mcq happy path (no LLM configured)', () => {
     expect(Object.keys(poolArg.select)).toEqual(['itemsEncrypted']);
 
     // No provider was configured → the adapter probe failed closed, no LLM call.
+    // TENANCY NEVER-REGRESS (V2-2 / D20): the probe MUST be scoped to the
+    // session's company — an unscoped or wrongly-scoped where here is exactly
+    // how one tenant's provider would grade another tenant's candidates.
     expect(llmProviderFindFirst).toHaveBeenCalledTimes(1);
+    const providerArg = llmProviderFindFirst.mock.calls[0]![0] as {
+      where: Record<string, unknown>;
+      orderBy: Record<string, string>;
+    };
+    expect(providerArg.where).toEqual({ companyId: 'company-1', isActive: true });
+    expect(providerArg.orderBy).toEqual({ createdAt: 'asc' });
 
     // Two evaluations, both DETERMINISTIC, truth data from the decrypted pool.
     expect(evaluationUpsert).toHaveBeenCalledTimes(2);
@@ -530,7 +541,7 @@ describe('runEvaluation — swipe+mcq happy path (no LLM configured)', () => {
   });
 
   it('refuses to evaluate a session that is not SUBMITTED', async () => {
-    testSessionFindUnique.mockResolvedValue({ id: 'sess-1', jobId: 'job-1', status: 'STARTED' });
+    testSessionFindUnique.mockResolvedValue({ id: 'sess-1', jobId: 'job-1', status: 'STARTED', job: { companyId: 'company-1' } });
     await expect(runEvaluation('sess-1')).rejects.toMatchObject({ statusCode: 409, code: 'SESSION_NOT_SUBMITTED' });
     expect(evaluationUpsert).not.toHaveBeenCalled();
   });

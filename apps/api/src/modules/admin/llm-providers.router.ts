@@ -13,35 +13,39 @@ import {
 
 const router = Router();
 
-/** List configured providers (redacted — no keys, no ciphertext). */
-router.get('/llm-providers', requireAuth, requireRole('ADMIN'), asyncHandler(async (_req, res) => {
-  res.json({ providers: await listProviders() });
+// requireRole('ADMIN') never admits the company-less SUPER_ADMIN, so every
+// handler below can scope by req.user!.companyId! (V2-2, D20).
+
+/** List the caller's company's configured providers (redacted — no keys, no ciphertext). */
+router.get('/llm-providers', requireAuth, requireRole('ADMIN'), asyncHandler(async (req, res) => {
+  res.json({ providers: await listProviders(req.user!.companyId!) });
 }));
 
-/** Add a provider (admin only). */
+/** Add a provider to the caller's company (admin only). */
 router.post('/llm-providers', requireAuth, requireRole('ADMIN'), asyncHandler(async (req, res) => {
   const input = createProviderSchema.parse(req.body);
-  res.status(201).json({ provider: await createProvider(input) });
+  res.status(201).json({ provider: await createProvider(req.user!.companyId!, input) });
 }));
 
-/** Edit a provider (apiKey absent = keep the stored one). */
+/** Edit a provider of the caller's company (apiKey absent = keep the stored one). */
 router.patch('/llm-providers/:id', requireAuth, requireRole('ADMIN'), asyncHandler(async (req, res) => {
   const input = updateProviderSchema.parse(req.body);
-  res.json({ provider: await updateProvider(req.params.id, input) });
+  res.json({ provider: await updateProvider(req.user!.companyId!, req.params.id, input) });
 }));
 
-/** Make this the one active provider (deactivates all others atomically). */
+/** Make this the one active provider of the caller's company (deactivates the
+ * company's others atomically; other companies are untouched). */
 router.post('/llm-providers/:id/activate', requireAuth, requireRole('ADMIN'), asyncHandler(async (req, res) => {
-  res.json({ provider: await activateProvider(req.params.id) });
+  res.json({ provider: await activateProvider(req.user!.companyId!, req.params.id) });
 }));
 
 /** Live round-trip against the provider with a minimal request. */
 router.post('/llm-providers/:id/test', requireAuth, requireRole('ADMIN'), asyncHandler(async (req, res) => {
-  res.json(await smokeTest(req.params.id));
+  res.json(await smokeTest(req.user!.companyId!, req.params.id));
 }));
 
 router.delete('/llm-providers/:id', requireAuth, requireRole('ADMIN'), asyncHandler(async (req, res) => {
-  await deleteProvider(req.params.id);
+  await deleteProvider(req.user!.companyId!, req.params.id);
   res.status(204).send();
 }));
 

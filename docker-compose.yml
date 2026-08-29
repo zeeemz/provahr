@@ -93,10 +93,21 @@ services:
       SECRETS_KEY: dev-compose-secrets-key-change-me-too
       OIDC_ENABLED: "false"
       NODE_ENV: production
-    command: sh -c "cd apps/api && node dist/worker.js"
+    # Migrations are idempotent; the worker ALSO applies them so a fresh
+    # volume can never race the API's boot-time migrate (E2E catch: worker
+    # started on a fresh DB, hit P2021 on job_queue, and crashed).
+    command: sh -c "cd apps/api && npx prisma migrate deploy && node dist/worker.js"
+    # Sandbox executes candidate code via the HOST's Docker daemon
+    # (docker-outside-of-docker). SECURITY NOTE: mounting the socket is
+    # root-equivalent on the host — self-hosted v1 accepts this; per-company
+    # isolation hardening is tracked with V2-4 (pluggable executors).
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       db:
         condition: service_healthy
+      api:
+        condition: service_started
 
   # ── Placeholder services, enabled in later phases ─────────────────────────
   # web:

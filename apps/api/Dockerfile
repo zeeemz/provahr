@@ -36,6 +36,11 @@ FROM node:20-alpine AS runtime
 WORKDIR /repo
 ENV NODE_ENV=production
 
+# docker-cli for the sandbox executor (E2E catch: the worker spawns
+# `docker run` for candidate code — containerized, it needs the CLI; the
+# daemon itself is the HOST's, reached via the socket mount in compose).
+RUN apk add --no-cache docker-cli
+
 # Same manifests, production dependencies only.
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/

@@ -1,5 +1,5 @@
 // Factory + the single seam Phase 2+ consumes. Feature code calls
-// `getActiveAdapter()` and never knows which provider is configured.
+// `getActiveAdapter(companyId)` and never knows which provider is configured.
 
 import { prisma } from '../../prisma';
 import { AppError } from '../http';
@@ -56,15 +56,22 @@ export function buildAdapterFromProvider(provider: ProviderRowLike): LlmAdapter 
   });
 }
 
-/** Loads the single active provider and returns a ready-to-use adapter. */
-export async function getActiveAdapter(): Promise<{
+/**
+ * Loads the company's single active provider and returns a ready-to-use
+ * adapter (V2-2, PLAN.md §12 D20). Callers resolve their own companyId —
+ * API-side from the authenticated user, worker-side from the job the queue
+ * payload addresses; the seam stays thin on purpose (no getActiveAdapterForJob).
+ */
+export async function getActiveAdapter(companyId: string): Promise<{
   adapter: LlmAdapter;
   provider: { id: string; kind: LlmProviderKindValue; textModel: string };
 }> {
-  // Deterministic choice if the code-level single-active invariant is ever
+  // Deterministic choice if the per-company single-active invariant is ever
   // raced by concurrent admin mutations (see schema note): oldest wins.
+  // A NULL-companyId legacy row never matches this filter — that is the
+  // documented "unusable until V2-3 backfills" state for pre-V2.2 rows.
   const row = await prisma.llmProvider.findFirst({
-    where: { isActive: true },
+    where: { companyId, isActive: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!row) {
