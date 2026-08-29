@@ -12,7 +12,12 @@ datasource db {
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
+// Role union (PLAN.md §12 D18): SUPER_ADMIN is PLATFORM-level — it owns the
+// install (companies, platform settings) and carries NO company
+// (User.companyId = null). ADMIN / RECRUITER / INTERVIEWER are company-scoped
+// tenant roles, unchanged from v1.
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   RECRUITER
   INTERVIEWER
@@ -112,12 +117,14 @@ enum QueueStatus {
 
 // ─── Models ──────────────────────────────────────────────────────────────────
 
-// MIGRATION-MANAGED INDEX (not expressible in Prisma schema — documented
-// drift risk): migration 0001_init appends
+// MIGRATION-MANAGED INDEX — historical note (not expressible in Prisma
+// schema): migration 0001_init created
 //   CREATE UNIQUE INDEX "companies_singleton_idx" ON "companies" ((true));
-// enforcing the single-company invariant at the DB level (QA wave-1 F2).
-// `prisma db push` and future `migrate dev` diffs do NOT know about it —
-// recreating a database without running migrations loses this constraint.
+// enforcing the single-company invariant (D6, QA wave-1 F2). Migration
+// 0002_multitenancy DROPS it — the install became a multi-tenant PLATFORM
+// (PLAN.md §12 D18) and companies are now tenants created by the super admin.
+// Databases built via `db push` never had the index; databases built from
+// migrations lose it exactly at 0002, which is the intent.
 
 model Company {
   id        String   @id @default(cuid())
@@ -140,8 +147,11 @@ model User {
   passwordHash String
   name         String
   role         UserRole  @default(RECRUITER)
-  companyId    String
-  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Nullable since 0002_multitenancy (D18): SUPER_ADMIN rows are platform-level
+  // and deliberately carry no company; every company-scoped role keeps a value.
+  // Existing single-install rows are unaffected (they all have a companyId).
+  companyId    String?
+  company      Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -294,6 +304,23 @@ model Scorecard {
 
   @@unique([applicationId, authorId])
   @@map("scorecards")
+}
+
+// ─── Platform settings (PLAN.md Phase V2-1, decision D19) ─────────────────────
+
+/// PLATFORM-level singleton configuration (id is always 'singleton' — seeded
+/// by migration 0002 and upserted on first write for `db push` databases).
+/// `authMode` is DATA, not env (D19): 'local' | 'oidc'. It feeds
+/// GET /api/auth/mode and the super-admin portal toggle today; V2-3 wires the
+/// OIDC middleware + per-company Keycloak config to it. Env vars
+/// (OIDC_ENABLED et al.) remain the boot-time fallback when no row/value
+/// exists — the DB read degrades to them, never to a 500.
+model PlatformSettings {
+  id        String   @id @default("singleton")
+  authMode  String   @default("local") // local | oidc (validated at the PUT boundary)
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_settings")
 }
 
 // ─── LLM providers (PLAN.md Phase 1, decision D9) ────────────────────────────

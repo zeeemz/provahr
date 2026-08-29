@@ -465,6 +465,20 @@ Phases 1–3 are demoable standalone; 4–8 form the candidate loop (mobile in 6
 | D15 | RBAC / identity | **Keycloak** is the identity provider for organization users: API validates OIDC JWTs (RS256, issuer + audience checked), maps realm/client roles to ADMIN/RECRUITER/INTERVIEWER, auto-provisions the local user row on first login. Organizations federate **their own Azure AD / SAML / LDAP through Keycloak identity brokering**. A local dev-mode (email/password JWT) remains so contributors run without Keycloak. Candidates never touch Keycloak — one-time test tokens stay internal |
 | D16 | Setup & install | **Minimal first-run path:** `scripts/install.sh` (bash) + `scripts/install.cmd` (Windows) check prerequisites, install deps, prepare `.env`, run migrations; then a **web-based setup wizard** (`GET /setup`) bootstraps the install (company + first admin; the wizard shows which auth mode is active — mode itself is environment-configured per D15, see `docs/RBAC.md`) and locks itself afterwards. Full stack ships via `docker compose up` (db + Keycloak + API) |
 | D17 | Integration discipline | Subsystem agents develop in parallel under **disjoint file ownership**; integration is **serial through the orchestrator**, who runs typecheck/tests/docs gates before any subtask is marked done. Independent **QA agent waves** audit landed work against spec + the never-regress list (docs/TESTING.md §6) |
+| D18 | **SaaS multi-tenancy** (founder, 2026-08-29 live-test) | The install becomes a PLATFORM: the setup wizard initializes a **Super Admin only**; companies (tenants) are created via a wizard inside the Super Admin panel. Supersedes the single-company aspect of D6 (the Company entity was already kept multi-ready). Role `SUPER_ADMIN` added; company users unchanged |
+| D19 | **Runtime auth configuration** (founder) | Auth mode + Keycloak settings become DATA, not env: a platform settings row plus per-company Keycloak config (issuer/audience), switchable in the portal. Env vars remain boot-time fallbacks. The "edit .env and restart" answer is retired |
+| D20 | **Company-scoped LLM providers** | LlmProvider gains `companyId`; each tenant configures its own provider keys. Platform-level defaults may come later |
+| D21 | **Company-scoped sandbox templates** | Tenants define sandbox image templates per language (e.g. a Java exercise image), stored per company; the builder's image allow-list resolves company template → platform default. Supersedes the global allow-list aspect of D10 |
+
+## 12.1 v2 delivery plan (SaaS evolution — appended 2026-08-29)
+
+| Phase | Deliverable |
+|---|---|
+| V2-1 | Multi-tenant core: `SUPER_ADMIN` role, nullable `User.companyId`, `PlatformSettings` (runtime auth mode), migration 0002, company CRUD (SUPER_ADMIN-gated), wizard v3 (super admin only) |
+| V2-2 | Company-scoped LLM providers (`companyId` on LlmProvider + tenancy scoping + per-company admin UI) |
+| V2-3 | Runtime Keycloak: per-company OIDC config, portal switch, middleware multi-issuer resolution |
+| V2-4 | Sandbox templates: company-scoped image templates + builder integration |
+| V2-5 | Docs sweep: BIBLE/RBAC/SELF_HOSTING/API updated for the platform model |
 
 ## 13. What survives from the current scaffold
 

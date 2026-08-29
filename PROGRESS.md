@@ -2,13 +2,17 @@
 
 > **🔧 RESUME HERE (reboot/recovery checkpoint)**
 > 1. Repo is a git repository: wave boundaries are commits — `git log --oneline`.
-> 2. **STATUS: ALL PLAN §11 PHASES (0-10) COMPLETE.** MVP shipped: API
->    (386+16 tests), worker, web portal, Expo mobile, compose deploy,
->    installers + wizard, Keycloak RBAC, the full AI-native loop.
-> 3. Post-MVP backlog (§7 below + README roadmap): Stage-enum migration,
->    VoidedItem FK, live-docker sandbox verification, shared limiter store,
->    data variants (PLAN §5.2 mechanism 2 completion), error-log redaction,
->    manual redirect loop, screenshot retention window/erasure endpoint.
+> 2. **v1 (phases 0-10) COMPLETE + E2E-proven.** FOUNDER PIVOT (2026-08-29,
+>    live test): **SaaS multi-tenancy** — decisions D18–D21 + v2 phase plan
+>    appended to PLAN.md §12.1. Read those before any v2 work.
+> 3. In flight: **V2-1 multi-tenant core** (Agent PLATFORM): SUPER_ADMIN role,
+>    nullable companyId, PlatformSettings, migration 0002, company CRUD,
+>    wizard v3 (super admin only). Then V2-2 (company LLM), V2-3 (runtime
+>    Keycloak per company — founder explicitly wants the switch IN THE
+>    PORTAL), V2-4 (company sandbox image templates, e.g. Java), V2-5 (docs
+>    sweep incl. BIBLE).
+> 4. Live stack (founder testing): compose up at :4000/:5173; DB currently
+>    FRESH (wizard v2 unlocked) — reset again after V2-1 lands.
 > 4. Open test-sweep items: CODE-format evaluation test; CI first-run of the
 >    integration tier.
 > 5. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc --noEmit
