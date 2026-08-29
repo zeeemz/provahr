@@ -266,7 +266,7 @@ describe('assertHardenedArgs — refuses tampered argv', () => {
 
 describe('assertHardenedArgs — exact-prefix, default-deny (QA wave-7)', () => {
   const base = buildRunArgs({ language: 'BASH' });
-  const imageAt = base.indexOf('bash:5.2-alpine');
+  const imageAt = base.indexOf('bash:5.2');
 
   function expectRejected(args: string[]): void {
     expect(() => assertHardenedArgs(args)).toThrowError(/SANDBOX_ARGS_UNHARDENED|unhardened/i);

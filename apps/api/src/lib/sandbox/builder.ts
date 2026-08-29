@@ -18,9 +18,14 @@ import type { CodeLanguage } from '../assessment/item';
 import { AppError } from '../http';
 import { PER_CASE_TIMEOUT_MS, type SandboxCase, type SandboxRequest } from './types';
 
-/** The only images the sandbox may ever run (PLAN §10 image allow-list). */
+/**
+ * The only images the sandbox may ever run (PLAN §10 image allow-list).
+ * E2E FINDING (2026-08-29): `bash:5.2-alpine` does not exist on Docker Hub —
+ * the official bash image publishes `5.2`, not `5.2-alpine`. Tags verified by
+ * live `docker pull`.
+ */
 export const IMAGE_ALLOW_LIST: Record<CodeLanguage, string> = {
-  BASH: 'bash:5.2-alpine',
+  BASH: 'bash:5.2',
   NODE: 'node:20-alpine',
   PYTHON: 'python:3.12-alpine',
 };

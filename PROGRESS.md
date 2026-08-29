@@ -337,6 +337,27 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-08-29 (E2E LIVE VERIFICATION — full loop proven)** — Real run on
+  this machine: Docker engine + compose Postgres + **first-ever execution of
+  migration 0001** (all singleton indexes applied and verified via \di) +
+  mock OpenAI-compatible LLM (provider layer D9 proven: create → activate →
+  smoke-test → used for JD/pool/eval). Full flow verified LIVE: wizard →
+  login → provider → intake → JD_REVIEW → approve → blueprint → pool sealed
+  (14 items, ×6 math exact, 0 invalid) → publish → apply → one-time token →
+  consent meta → session start (2 questions: MCQ + CODE/BASH) → answers →
+  signal → submit `{submitted:true}` → re-entry alreadyUsed (asymmetry) →
+  worker EVALUATION DONE → **X-ray: MCQ DETERMINISTIC 1.0, CODE SANDBOX_LLM
+  1.0 with real container execution (bash:5.2, exit 0, both hidden cases
+  passed)**, assessment totalScore 1.0, TAB_SWITCH flagged, advisory-only
+  recommendation. **E2E FINDINGS (2, both real): (1) `bash:5.2-alpine` did
+  not exist on Docker Hub — every BASH sandbox run would have failed in
+  production; FIXED to `bash:5.2` (verified by live pull; tests updated).
+  (2) The documented `.env` flow is broken — nothing loads .env (no
+  dotenv; compose works via explicit env). Backlog: switch dev scripts to
+  `--env-file` or document inline env.** Also observed: fail-closed pool
+  sealing behaved exactly as designed against a misbehaving (mock) provider
+  — shortfall message, bounded retries, clean FAILED rows.
+  *(main, live-run)*
 - **2026-08-29 (ALL PHASES COMPLETE — wave 9b mobile)** — Expo candidate app
   landed: PanResponder swipe deck (LIKE/DISLIKE flings + tap-toggle fallback +
   replay chips), full session flow with clock/auto-submit/grace handling,
