@@ -1450,41 +1450,8 @@
       "why": "bridges separate communities; peripheral node `ProviderRow()` unexpectedly reaches hub `fmtDate()`"
     }
   ],
-  "questions": [
-    {
-      "type": "bridge_node",
-      "question": "Why does `AppError` connect `AppError` to `setup.router.ts`, `lib/http.ts`, `jobs.router.ts`, `public.router.ts`, `sandbox/index.ts`, `token.ts`, `llm/index.ts`, `evaluation.service.ts`, `evaluation-routes.test.ts`, `blueprint.service.ts`, `companies.service.ts`, `oidc.ts`, `session.service.ts`, `app.ts`, `auth.ts`, `auth.service.ts`?",
-      "why": "High betweenness centrality (0.084) - this node is a cross-community bridge."
-    },
-    {
-      "type": "bridge_node",
-      "question": "Why does `prisma` connect `auth.ts` to `setup.router.ts`, `jobs.router.ts`, `public.router.ts`, `evaluation.service.ts`, `env.ts`, `lib/http.ts`, `llm/index.ts`, `token.ts`, `evaluation-routes.test.ts`, `blueprint.service.ts`, `companies.service.ts`, `AppError`, `session.service.ts`, `auth.service.ts`?",
-      "why": "High betweenness centrality (0.014) - this node is a cross-community bridge."
-    },
-    {
-      "type": "bridge_node",
-      "question": "Why does `errMessage()` connect `errMessage` to `web/src/api/types.ts`, `src/App.tsx`, `ApplicationDetail.tsx`, `JobConsole.tsx`, `web/src/api/client.ts`?",
-      "why": "High betweenness centrality (0.011) - this node is a cross-community bridge."
-    },
-    {
-      "type": "isolated_nodes",
-      "question": "What connects `Route`, `ApiErrorBody`, `EmploymentType` to the rest of the system?",
-      "why": "343 weakly-connected nodes found - possible documentation gaps or missing edges."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `TestSessionScreen.tsx` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.051590483827853514 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `jobs.router.ts` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.056189640035118525 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `public.router.ts` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.05547785547785548 - nodes in this community are weakly interconnected."
-    }
-  ]
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
 }
