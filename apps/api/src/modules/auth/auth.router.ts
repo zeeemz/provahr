@@ -1,10 +1,21 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../lib/http';
 import { requireAuth } from '../../middleware/auth';
+import { env } from '../../env';
 import { register, login } from './auth.service';
 import { registerSchema, loginSchema } from './auth.schema';
 
 const router = Router();
+
+/**
+ * Which auth mode this install runs in (D15). Public and boolean-only —
+ * clients pick login UX from it; the admin settings page explains it. The
+ * mode itself is environment-configured (see docs/RBAC.md), so this is a
+ * readout, not a toggle.
+ */
+router.get('/mode', (_req, res) => {
+  res.json({ mode: env.OIDC_ENABLED ? 'oidc' : 'local' });
+});
 
 /** Create a company workspace + first admin. */
 router.post(

@@ -434,6 +434,73 @@ export interface Xray {
   assessment: XrayAssessment | null;
 }
 
+// ─── Admin: LLM providers (modules/admin) ─────────────────────────────────────
+
+export type ProviderKind = 'OPENAI_COMPATIBLE' | 'ANTHROPIC' | 'AZURE_OPENAI';
+
+/**
+ * Row of GET /api/admin/llm-providers — redacted by contract: no key, no
+ * ciphertext, only the last 4 characters (`createdAt` is a Date in the
+ * service, ISO over JSON).
+ */
+export interface RedactedProvider {
+  id: string;
+  kind: ProviderKind;
+  baseUrl: string;
+  textModel: string;
+  visionModel: string | null;
+  isActive: boolean;
+  createdAt: string;
+  apiKeyLast4: string;
+}
+
+/** POST /api/admin/llm-providers body (apiKey min 8 chars — Ollama users: any value). */
+export interface CreateProviderInput {
+  kind: ProviderKind;
+  baseUrl?: string;
+  apiKey: string;
+  textModel: string;
+  visionModel?: string;
+  /** Server default is false; activating deactivates every other provider. */
+  isActive?: boolean;
+}
+
+/** POST /api/admin/llm-providers/:id/test — failures surface as LLM_ERROR (502). */
+export interface SmokeTestResult {
+  ok: true;
+  model: string;
+  latencyMs: number;
+  reply: string;
+}
+
+// ─── Admin: team (modules/users) ──────────────────────────────────────────────
+
+/** Row of GET /api/users — members of the caller's company (joined date included). */
+export interface UserRow {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  createdAt: string;
+}
+
+/** POST /api/users body (201 → { user: PublicUser }; 409 EMAIL_TAKEN on duplicates). */
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  password: string;
+  role: Role;
+}
+
+// ─── Auth mode readout (modules/auth GET /api/auth/mode) ──────────────────────
+
+/**
+ * Which credential verifier this install runs: `local` = email + password,
+ * `oidc` = Keycloak SSO. Environment-configured (OIDC_ENABLED + restart) —
+ * a readout, not a toggle.
+ */
+export type AuthMode = 'local' | 'oidc';
+
 // ─── Dashboard stats (modules/stats) ──────────────────────────────────────────
 
 export interface DashboardStats {

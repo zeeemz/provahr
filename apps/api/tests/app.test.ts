@@ -78,3 +78,12 @@ describe('public endpoints', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
+
+describe('GET /api/auth/mode', () => {
+  it('reports the install auth mode (boolean-only, public)', async () => {
+    const res = await request(app).get('/api/auth/mode');
+    expect(res.status).toBe(200);
+    expect(['local', 'oidc']).toContain(res.body.mode);
+    expect(Object.keys(res.body)).toEqual(['mode']);
+  });
+});

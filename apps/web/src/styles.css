@@ -73,6 +73,11 @@ header.appbar {
 .appbar nav a.active, .appbar nav a:hover { color: var(--primary); }
 .appbar .spacer { flex: 1; }
 .appbar .who { color: var(--muted); font-size: 0.85rem; }
+/* "Admin" group label inside the nav — hairline divider + quiet small caps. */
+.appbar .nav-group-label {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); border-left: 1px solid var(--border); padding-left: 14px; margin-left: 2px;
+}
 
 /* ── Cards & layout ───────────────────────────────────────────────────────── */
 .card {
@@ -143,6 +148,8 @@ table.list th {
 table.list td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 table.list tr.clickable { cursor: pointer; }
 table.list tr.clickable:hover td { background: #fafbfc; }
+/* Admin providers list: the one active provider is highlighted (ok-tinted). */
+table.list tr.active-row td { background: var(--ok-bg); }
 
 /* ── Public board ─────────────────────────────────────────────────────────── */
 .job-card { display: block; text-decoration: none; color: inherit; }
