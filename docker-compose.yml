@@ -28,7 +28,9 @@ services:
     # Identity provider for OIDC mode (docs/RBAC.md). Deliberately NOT wired to
     # the `db` service: `start-dev` uses its own embedded dev-file H2 store, so
     # Keycloak keeps running while PostgreSQL is being reset or migrated.
-    image: quay.io/keycloak/keycloak:26.x
+    # Pinned to a real, pull-verified tag (the literal "26.x" does not exist
+    # on quay.io — E2E compose finding, same class as the bash image tag).
+    image: quay.io/keycloak/keycloak:26.0
     command: start-dev --import-realm
     environment:
       # CHANGE THESE before anything resembling production.
@@ -75,6 +77,23 @@ services:
         exec node dist/index.js"
     ports:
       - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # The async loop runner: JD generation, pool sealing, evaluation. Same image
+  # as the API, different command — without it the AI loop does nothing.
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/provahr
+      JWT_SECRET: dev-only-change-me-jwt-secret-32-chars
+      SECRETS_KEY: dev-compose-secrets-key-change-me-too
+      OIDC_ENABLED: "false"
+      NODE_ENV: production
+    command: sh -c "cd apps/api && node dist/worker.js"
     depends_on:
       db:
         condition: service_healthy
