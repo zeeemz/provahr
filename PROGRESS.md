@@ -3,13 +3,13 @@
 > **🔧 RESUME HERE (reboot/recovery checkpoint)**
 > 1. Repo is a git repository: wave boundaries are commits — `git log --oneline`
 >    to orient; commit after every wave close (user directive: survive reboots).
-> 2. Last completed: **wave 8 / Phase 8 CLOSED** (evaluation wired to submit,
->    void race fixed, full-rollup renormalization — 375+16 ×2).
-> 3. In flight: **wave 9 / Phase 6a — web portal** (Agent WEB, apps/web).
->    Next after gate+QA: Phase 6b Expo mobile (apps/mobile), then wave 10
->    (Phase 9-10: TEST/REVIEW pipeline stages, first committed migration w/
->    singleton constraints + VoidedItem FK, hardening backlog, DATA_MODEL
->    rewrite, README final state, final commit).
+> 2. Last completed: **wave 9a / Phase 6 WEB** (React portal, gates green).
+>    Wave 8 closed before it (evaluation wired, void race fixed).
+> 3. In flight: **wave 10 / Phases 9-10 — the closer** (Agent FINAL): TEST/REVIEW
+>    pipeline stages, first committed migration (init + singleton indexes +
+>    VoidedItem FK), DATA_MODEL rewrite, README final state, CODE-format
+>    evaluation test. Then wave 9b: Expo mobile (apps/mobile), then final
+>    commit + completion audit.
 > 4. Open test-sweep items: CODE-format evaluation test; CI first-run of the
 >    integration tier.
 > 5. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc --noEmit
@@ -58,7 +58,7 @@
 | 3 | Blueprint editor + sample preview + sealed pool (+re-seal) | ✅ complete (2026-08-29, wave 4) |
 | 4 | Public board, apply flow, one-time test links | ✅ complete (2026-08-29, wave 5 — QA-closed) |
 | 5 | Candidate test portal (web): Swipe MCQ, review pass, signals | ✅ API engine complete (2026-08-29, wave 6 — UI in Phase 6 wave) |
-| 6 | Candidate mobile app (Expo): swipe gestures, signal parity | ⬜ pending |
+| 6 | Candidate mobile app (Expo): swipe gestures, signal parity | ⬜ wave 9b (after wave 10) |
 | 7 | Sandbox executor (Docker) + hidden test cases | ✅ complete (2026-08-29, wave 7 QA-closed; live-docker smoke deferred to Phase 10) |
 | 8 | LLM evaluation pipeline + HR X-ray + void | ✅ complete (2026-08-29, wave 8 QA-closed) |
 | 9 | Pipeline integration + dashboard + flags | ⬜ pending |
@@ -338,6 +338,16 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-08-29 (wave 9a / Phase 6 WEB integrated)** — React portal landed
+  (~4.3k LOC): candidate loop (board → apply → one-time link UX with copy +
+  unrecoverable warning → consent → Swipe-MCQ/MCQ/WRITTEN/CODE test UI with
+  debounced autosave, review pass, red-pulse countdown with auto-submit in
+  the grace window, batched TAB_SWITCH/LARGE_PASTE/COPY signals →
+  "Submitted ✓" asymmetry) + HR console (dashboard, intake wizard through
+  seal+publish, pipeline, X-ray with verdicts/AI flags/execution results).
+  Gates: web typecheck+build ×2 green (agent) + orchestrator re-run; API
+  suite untouched (375+16). Agent corrected the spec to router truth
+  (/api/stats). *(main + Agent WEB)*
 - **2026-08-29 (wave 8 CLOSED — QA + fixes)** — QA verdict PASS-WITH-FINDINGS;
   both crown jewels verified clean (test-spy: zero application-status writes;
   route trace: no truth data candidate-reachable). Fixed: **evaluation wired
