@@ -1,9 +1,10 @@
 # ProvaHR API Reference
 
-**Last verified: 2026-08-29** — transcribed from the routers in
+**Last verified: 2026-08-31** — transcribed from the routers in
 `apps/api/src/modules/**` (mounted in `apps/api/src/app.ts`). Roles:
-"auth" = any authenticated company user; roles in parentheses = the
-`requireRole` gate. The documented web client uses a same-origin base
+"auth" = any authenticated user; `SUPER_ADMIN` = the platform owner
+(company-less); roles in parentheses = the `requireRole` /
+`requireSuperAdmin` gate. The documented web client uses a same-origin base
 (`/api`, Vite dev proxy → `http://localhost:4000`); the mobile client uses
 `<API_URL>/api` (default `http://localhost:4000/api`).
 
@@ -11,24 +12,29 @@ Conventions that apply everywhere:
 
 - Auth is `Authorization: Bearer <token>` (local-mode JWT or Keycloak OIDC
   access token — see [RBAC.md](RBAC.md)). Missing/bad token → **401
-  `UNAUTHENTICATED`**; wrong role → **403 `FORBIDDEN`**.
+  `UNAUTHENTICATED`**; wrong role → **403 `FORBIDDEN`**; a company user's
+  local token under SSO mode → **403 `SSO_MODE_ACTIVE`**.
 - Errors are always `{ "error": { "code", "message", "details"? } }`.
   Zod failures → **400 `VALIDATION_ERROR`** with per-field `details`; oversized
   bodies → **413 `REQUEST_TOO_LARGE`**; Prisma unique races → **409
   `CONFLICT`**; unknown routes → **404 `NOT_FOUND`** (`middleware/error.ts`).
 - All company data is scoped to the caller's company; another company's (or
-  nonexistent) resource answers the same **404**.
+  nonexistent) resource answers the same **404**. `SUPER_ADMIN` reaches only
+  the platform routes below — company-scoped routes never admit it.
 
 ---
 
 ## Setup (first-run) — mounted at `/api/setup` (+ the page at `/setup`)
 
+Wizard v3 (V2-1/D18): bootstraps the **platform super admin only** — no
+company here; tenants come next from the platform console.
+
 | Method | Path | Auth | Request → Response |
 |---|---|---|---|
-| GET | `/api/setup/status` | public | → `{ installed: boolean }` |
-| GET | `/api/setup` (also `/setup`) | public | → the wizard HTML page |
+| GET | `/api/setup/status` | public | → `{ installed: boolean }` — true once a SUPER_ADMIN exists |
+| GET | `/api/setup` (also `/setup`) | public | → the wizard HTML page (2 steps: install, auth-mode readout + finish) |
 | GET | `/api/setup/wizard.js` | public | → the wizard's same-origin JS (helmet CSP blocks inline) |
-| POST | `/api/setup/install` | public, **10/hour/IP** | `{ companyName, adminName, adminEmail, adminPassword (min 8) }` → **201** `{ installed: true, adminEmail }`. Errors: **409 `ALREADY_INSTALLED`** (hard-locks after first success), **400**, **429 `RATE_LIMITED`** |
+| POST | `/api/setup/install` | public, **10/hour/IP** | `{ adminName, adminEmail, adminPassword (min 8) }` → **201** `{ installed: true, adminEmail }` — creates the SUPER_ADMIN (no `companyName`). Errors: **409 `ALREADY_INSTALLED`** (hard-locks after first success), **400**, **429 `RATE_LIMITED`** |
 
 Health: `GET /health` (public) → `{ status: "ok" }`.
 
@@ -36,9 +42,26 @@ Health: `GET /health` (public) → `{ status: "ok" }`.
 
 | Method | Path | Auth | Request → Response |
 |---|---|---|---|
-| POST | `/register` | public | `{ companyName, adminName, adminEmail, adminPassword }` → **201** `{ token, user }` — creates the single company + first ADMIN. Errors: **409 `ALREADY_INSTALLED`** (a company exists — the wizard is the bootstrap), **409 `EMAIL_TAKEN`** |
+| GET | `/mode` | public | → `{ mode: "local" \| "oidc", perCompany: boolean }` — the runtime mode from `PlatformSettings.authMode` (env `OIDC_ENABLED` as fallback; never 500s) and whether any company has an **enabled** Keycloak config. Clients pick login UX from this |
+| POST | `/register` | public | `{ name, email, password (min 8) }` → **201** `{ token, user }` — creates the install's SUPER_ADMIN (no company; same service the wizard uses). Errors: **409 `ALREADY_INSTALLED`** (a super admin exists — the wizard is the bootstrap), **409 `EMAIL_TAKEN`** |
 | POST | `/login` | public | `{ email, password }` → `{ token, user }`. Errors: **401 `INVALID_CREDENTIALS`** (constant-time vs a dummy hash) |
-| GET | `/me` | auth | → `{ user }` |
+| GET | `/me` | auth | → `{ user }` (SUPER_ADMIN carries `companyId: null`) |
+
+## Platform console — `/api/platform` (all SUPER_ADMIN; V2-1..4)
+
+Every route is `requireAuth` + `requireSuperAdmin`. This is the tenant and
+platform-settings surface; read-only oversight lists include every company.
+
+| Method | Path | Request → Response |
+|---|---|---|
+| GET | `/api/platform/companies` | → `{ companies: [{ id, name, slug, website, createdAt, userCount }] }` (newest first) |
+| POST | `/api/platform/companies` | `{ name (2-120), website?, firstAdmin?: { name, email, password (min 8) } }` → **201** `{ company, admin \| null }` — creates a tenant and, optionally, its first ADMIN in one transaction (slug auto-freed on collision). Errors: **409 `EMAIL_TAKEN`** (firstAdmin's email), **400** |
+| PATCH | `/api/platform/companies/:id` | `{ name?, website? }` → `{ company }` (slug is stable across renames). Errors: **404 `NOT_FOUND`** |
+| DELETE | `/api/platform/companies/:id` | → **204** — cascades the tenant's users, jobs and downstream data. Errors: **404** |
+| GET | `/api/platform/settings` | → `{ authMode: "local" \| "oidc" }` — the runtime mode readout |
+| PUT | `/api/platform/settings` | `{ authMode: "local" \| "oidc" }` → `{ authMode }` — the live switch: takes effect on the next request (the auth middleware reads the row per request behind a 10s cache, which this write refreshes immediately) |
+| GET | `/api/platform/auth-configs` | → `{ configs: [{ companyId, companyName, authConfig: { issuerUrl, audience, enabled, updatedAt } \| null, issuerShapeValid }] }` — every tenant's Keycloak config with a URL-shape hint (no live round-trip) |
+| GET | `/api/platform/sandbox-templates` | → `{ companies: [{ companyId, companyName, languages: [{ language, defaultImage, activeImage, activeSource: "COMPANY" \| "PLATFORM", template? }], anyOverride }] }` — read-only oversight of which images run per tenant |
 
 ## Users — `/api/users`
 
@@ -123,19 +146,45 @@ surface never carries scores, verdicts, or feedback (asymmetry).
 |---|---|---|---|
 | GET | `/api/stats` | auth | → `{ jobs: {total, open}, applications: {total, active, hired, rejected}, byStage: {…}, recentEvents: [...] }` (company dashboard; the endpoint is `/api/stats`, not `/api/stats/dashboard`) |
 
-## Admin: LLM providers — `/api/admin/llm-providers` (all ADMIN)
+## Admin (company-scoped) — `/api/admin/*` (all ADMIN)
 
-Provider config and smoke-test examples with full curl walkthroughs live in
+All three groups scope by the caller's `companyId` (`requireRole('ADMIN')`
+never admits the company-less SUPER_ADMIN): another company's resource answers
+the same **404**. Provider config examples with curl walkthroughs live in
 [SELF_HOSTING.md](SELF_HOSTING.md).
+
+### LLM providers — `/api/admin/llm-providers`
 
 | Method | Path | Request → Response |
 |---|---|---|
 | GET | `/api/admin/llm-providers` | → `{ providers }` — **redacted**: no keys, no ciphertext, `apiKeyLast4` only |
 | POST | `/api/admin/llm-providers` | `{ kind: OPENAI_COMPATIBLE\|ANTHROPIC\|AZURE_OPENAI, baseUrl, apiKey, textModel, visionModel?, isActive? }` → **201** `{ provider }` |
 | PATCH | `/api/admin/llm-providers/:id` | partial of the above — omit `apiKey` to keep the stored one → `{ provider }` |
-| POST | `/api/admin/llm-providers/:id/activate` | → `{ provider }` — atomically deactivates all others; there is deliberately no deactivate endpoint |
+| POST | `/api/admin/llm-providers/:id/activate` | → `{ provider }` — atomically deactivates the **company's** others (per-company single-active, migration 0003); there is deliberately no deactivate endpoint |
 | POST | `/api/admin/llm-providers/:id/test` | → `{ ok: true, model, latencyMs, reply }` (live round-trip) or **502 `LLM_ERROR`** (provider status in the message, key never included) |
-| DELETE | `/api/admin/llm-providers/:id` | → **204** (deleting the active row leaves zero active — AI features then fail with **503 `NO_PROVIDER`** until another is activated) |
+| DELETE | `/api/admin/llm-providers/:id` | → **204** (deleting the active row leaves the company with zero active — AI features then fail with **503 `NO_PROVIDER`** until another is activated) |
+
+### Keycloak / OIDC config — `/api/admin/auth-config` (V2-3)
+
+Exactly one config per company: GET/PUT on the collection, no `:id` routes and
+no DELETE — `enabled: false` is the off-switch (a disabled row authenticates
+nobody), which keeps a re-enable one PUT away.
+
+| Method | Path | Request → Response |
+|---|---|---|
+| GET | `/api/admin/auth-config` | → `{ authConfig: { issuerUrl, audience, enabled, updatedAt } \| null }` (null = never saved) |
+| PUT | `/api/admin/auth-config` | `{ issuerUrl (http(s) URL), audience, enabled }` → `{ authConfig }` — upserts the company's verifier; in SSO mode tokens whose `iss` matches `issuerUrl` verify against this config and join **this** company. Errors: **409 `ISSUER_TAKEN`** (another company already has this issuer **enabled**; disabled drafts never clash — the migration 0004 partial unique index backstops the race as Prisma P2002 → 409) |
+
+### Sandbox image templates — `/api/admin/sandbox-templates` (V2-4)
+
+One template per language per company (`@@unique([companyId, language])`):
+PUT carries the language in the body, no DELETE — `enabled: false` keeps the
+platform default.
+
+| Method | Path | Request → Response |
+|---|---|---|
+| GET | `/api/admin/sandbox-templates` | → `{ templates: [{ language, defaultImage, activeImage, activeSource: "COMPANY"\|"PLATFORM", template: { id, name, description, language, image, enabled, updatedAt } \| null }] }` — always one row per CODE language (BASH/NODE/PYTHON), stored or not |
+| PUT | `/api/admin/sandbox-templates` | `{ language: BASH\|NODE\|PYTHON, name (1-120), image, enabled, description? }` → `{ template }` (the same row shape as above). `image` must be a lowercase docker reference (registry, optional `:port`, path, optional `:tag`; ≤100 chars; no flags/whitespace/digests) — enforced by zod **and** the service guard. Errors: **400 `SANDBOX_TEMPLATE_UNSAFE`** |
 
 ---
 

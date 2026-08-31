@@ -30,7 +30,7 @@
 |---|---|---|---|
 | T1 Unit | Pure domain logic: stage/status rules, draw & variant math, Swipe-MCQ scoring, time budgets, token crypto, blueprint validation, void/re-normalization math | every PR | Vitest (exists: `apps/api/tests/*`) |
 | T2 Integration | Prisma repositories + services against real PostgreSQL; session lifecycle state machine; sealed-pool encrypt/decrypt round-trip | every PR (CI service container; locally via Docker) | Vitest + testcontainers-style setup |
-| T3 Contract & security | Full route matrix over HTTP: role access (ADMIN/RECRUITER/INTERVIEWER/anonymous), sealed-pool leakage (**no endpoint returns future-session items**), one-time token single-use + expiry, rate limits, tenancy isolation between installs | every PR | supertest (exists) + DB |
+| T3 Contract & security | Full route matrix over HTTP: role access (SUPER_ADMIN/ADMIN/RECRUITER/INTERVIEWER/anonymous), sealed-pool leakage (**no endpoint returns future-session items**), one-time token single-use + expiry, rate limits, tenancy isolation **between companies on one install** (cross-tenant reads 404; super admin never reaches company routes) | every PR | supertest (exists) + DB |
 | T4 Sandbox executor | Container hardening: network disabled (a `curl`-ing program must fail), non-root UID asserted, CPU/mem/wall-clock limits kill runaway code, output truncation, hidden test-case harness, per-language image matrix (bash/node/python) | PRs touching sandbox; scheduled otherwise | Docker required |
 | T5 LLM adapters | OpenAI-compatible / Anthropic / Azure adapters: auth headers, base URLs, error mapping, retries, JSON-mode parsing, image inputs — against mocked endpoints; prompt templates snapshot-tested | every PR | undici/nock-style mocks + fixture tapes |
 | T6 Evaluation logic | Grading against fixture LLM responses; AI-likelihood combination rules (signals × style); cross-session collusion detector on crafted answer sets; asymmetry rule (candidate never sees evaluations — API-level assertion) | every PR | Vitest fixtures |
@@ -84,7 +84,7 @@ No secrets required for green CI. Real-provider smoke tests run only when
 2. **Sealed-pool invisibility** — exhaustive route matrix returns no
    future-session items for any role, including ADMIN (T3).
 3. **One-time test tokens** — second use of a token fails; expiry enforced (T3).
-4. **Tenancy isolation** — cross-install data access 404s (T3).
+4. **Tenancy isolation** — cross-company data access 404s on the same install (T3; v2: tenants, not installs).
 5. **Session clock** — review pass and revising answers never pause the clock (T2).
 6. **Candidate asymmetry** — no public endpoint exposes evaluations (T3).
 7. **Sandbox containment** — network egress fails inside the executor (T4).

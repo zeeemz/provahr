@@ -6,7 +6,7 @@ submissions. Candidates prove their skill with their own brain — on web or
 their phone — while the platform watches for AI cheating. Hiring runs on
 proof, not polish.
 
-> Status: **DRAFT v4 — awaiting founder sign-off** · Last updated: 2026-08-28
+> Status: **v1 + v2 (SaaS platform) COMPLETE — founder demo ready** · Last updated: 2026-08-31
 >
 > This document supersedes the earlier generic-ATS plan. Product decisions in
 > §12 were confirmed by the founder on 2026-08-28 (D11 name locked, D13–D14
@@ -278,7 +278,7 @@ Key choices:
   Candidates are not in Keycloak (one-time test tokens, PLAN §4).
 - **Bootstrap = CLI script + web wizard (D16).** `install.sh` / `install.cmd`
   handle the boring parts (prereqs, deps, migrations); a first-run wizard at
-  `/setup` creates the company + first admin and then hard-locks. No config
+  `/setup` creates the **super admin** and then hard-locks (companies are created in the platform console — D18)
   files hand-edited on day one.
 - **Mobile = React Native + Expo** (confirmed): keeps TypeScript everywhere,
   shares `packages/shared` and the exact same session contract as the web
@@ -335,10 +335,10 @@ New entities:
 GET    /health
 GET    /api/setup/status                   # boolean install state
 GET    /api/setup · /setup                 # first-run wizard page (+ /api/setup/wizard.js)
-POST   /api/setup/install                  # company + first admin (10/hour/IP)
+POST   /api/setup/install                  # super admin bootstrap (10/hour/IP)
 
 # Auth & users (local mode; Keycloak mode = docs/RBAC.md)
-POST   /api/auth/register                  # single-company bootstrap (409 once installed)
+POST   /api/auth/register                  # super-admin bootstrap (409 once installed; superseded by D18)
 POST   /api/auth/login                     # email + password → JWT
 GET    /api/auth/me                        # current user
 GET    /api/users                          # list company users (auth)
@@ -453,11 +453,11 @@ Phases 1–3 are demoable standalone; 4–8 form the candidate loop (mobile in 6
 | D3 | Detection depth v1 | Passive signals + post-hoc LLM analysis; **no webcam/screen recording** |
 | D4 | Test formats v1 | **Swipe MCQ (per-option like/dislike)** + classic MCQ + written + code/bash; per-candidate randomization; bounded review pass with per-question revise/replay |
 | D5 | Evaluation visibility | Candidate: submission status only. HR: full X-ray incl. code, runs, signals, AI verdicts |
-| D6 | Tenancy | Single company per install; admin connects own LLM incl. **own Azure OpenAI tenant** |
+| D6 | Tenancy | Single company per install; admin connects own LLM incl. **own Azure OpenAI tenant**. *Superseded in part by D18 (2026-08-29): the install is a multi-company platform; the admin-owns-the-LLM aspect lives on per tenant (D20)* |
 | D7 | Stack | **TypeScript end-to-end** (Node API + worker, React web) |
 | D8 | License | **Apache-2.0** |
 | D9 | LLM providers v1 | OpenAI-compatible + Anthropic + Azure OpenAI; one active; admin-configured |
-| D10 | Sandbox v1 | Docker per-run, pluggable executor interface |
+| D10 | Sandbox v1 | Docker per-run, pluggable executor interface. *Superseded in part by D21 (2026-08-31): per-company image templates are allowed; the hardening flags stay platform-fixed* |
 | D11 | Name | **ProvaHR** (locked 2026-08-28; no exact-match collisions found — formal domain/trademark clearance before public launch) |
 | D12 | Question integrity | **"Bulletproof" pool: HR designs blueprint only; sealed pool (encrypted, no API exposure to any role); per-session draw + variants; hidden test cases; hard time budget; post-hoc void with score re-normalization** |
 | D13 | Mobile | **Native candidate app: React Native + Expo** (TypeScript preserved; same API contract; swipe gestures for Swipe MCQ; signal parity with web). HR console = responsive web in v1 |
@@ -472,13 +472,17 @@ Phases 1–3 are demoable standalone; 4–8 form the candidate loop (mobile in 6
 
 ## 12.1 v2 delivery plan (SaaS evolution — appended 2026-08-29)
 
-| Phase | Deliverable |
-|---|---|
-| V2-1 | Multi-tenant core: `SUPER_ADMIN` role, nullable `User.companyId`, `PlatformSettings` (runtime auth mode), migration 0002, company CRUD (SUPER_ADMIN-gated), wizard v3 (super admin only) |
-| V2-2 | Company-scoped LLM providers (`companyId` on LlmProvider + tenancy scoping + per-company admin UI) |
-| V2-3 | Runtime Keycloak: per-company OIDC config, portal switch, middleware multi-issuer resolution |
-| V2-4 | Sandbox templates: company-scoped image templates + builder integration |
-| V2-5 | Docs sweep: BIBLE/RBAC/SELF_HOSTING/API updated for the platform model |
+**v2 COMPLETE (2026-08-31).** Every wave shipped with tests, a live E2E
+regression pass and a git checkpoint; suite at close: 483 passed + 16
+CI-gated = 499.
+
+| Phase | Deliverable | Status |
+|---|---|---|
+| V2-1 | Multi-tenant core: `SUPER_ADMIN` role, nullable `User.companyId`, `PlatformSettings` (runtime auth mode), migration 0002, company CRUD (SUPER_ADMIN-gated), wizard v3 (super admin only) | ✅ 2026-08-29 |
+| V2-2 | Company-scoped LLM providers (`companyId` on LlmProvider + migration 0003 index swap + tenancy scoping + per-company admin UI) | ✅ 2026-08-29 |
+| V2-3 | Runtime Keycloak: per-company OIDC config (`CompanyAuthConfig`, migration 0004), portal switch, middleware multi-issuer resolution, super-admin lockout carve-out + `SSO_MODE_ACTIVE` | ✅ 2026-08-31 |
+| V2-4 | Sandbox templates: company-scoped image templates (migration 0005) + parameterized exact-prefix builder integration | ✅ 2026-08-31 |
+| V2-5 | Docs sweep: BIBLE/RBAC/SELF_HOSTING/API/DATA_MODEL/PLAN/README/PROGRESS reconciled to the platform model | ✅ 2026-08-31 |
 
 ## 13. What survives from the current scaffold
 

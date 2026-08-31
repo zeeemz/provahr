@@ -1,6 +1,6 @@
 # The ProvaHR Bible — the map of record
 
-**Last verified: 2026-08-29**
+**Last verified: 2026-08-31**
 
 This document is the single entry point to ProvaHR: what the product is, how the
 system is actually built, how data flows through the core loop, and where every
@@ -24,11 +24,14 @@ evaluates the answers), **candidates prove their skill with their own brain**
 (a real, role-specific, proctored test on web or phone), and **the evaluation is
 asymmetric by design**: the candidate sees `submitted ✓` and nothing else, ever;
 HR sees a full X-ray (answers, execution results, verdicts, signals, AI flags)
-and then makes every decision themselves. Self-hosted, single-tenant,
-bring-your-own LLM. One sentence: *AI does the grunt work for HR — and does the
-candidate's work for nobody.* ([docs/PLAN.md](PLAN.md) §1)
+and then makes every decision themselves. Self-hosted **multi-tenant SaaS
+platform** (D18): one install hosts many companies, each with its own LLM keys
+(D20), its own Keycloak realm (D19) and its own sandbox images (D21).
+One sentence: *AI does the grunt work for HR — and does the candidate's work
+for nobody.* ([docs/PLAN.md](PLAN.md) §1)
 
-**The 17 founder-confirmed decisions** (full text: PLAN §12, 2026-08-28):
+**The 21 founder-confirmed decisions** (full text: PLAN §12; D1–D17 confirmed
+2026-08-28, D18–D21 confirmed 2026-08-29 during the founder's live test):
 
 | # | Decision | One line |
 |---|---|---|
@@ -37,11 +40,11 @@ candidate's work for nobody.* ([docs/PLAN.md](PLAN.md) §1)
 | D3 | Detection depth v1 | Passive signals + post-hoc LLM analysis; no webcam/screen recording |
 | D4 | Test formats | Swipe MCQ (per-option like/dislike) + MCQ + written + code/bash; randomization; bounded review pass |
 | D5 | Evaluation visibility | Candidate: submission status only. HR: full X-ray |
-| D6 | Tenancy | Single company per install; admin connects own LLM incl. own Azure OpenAI tenant |
+| D6 | Tenancy | ~~Single company per install~~ → **superseded in part by D18**: the install is a multi-company platform |
 | D7 | Stack | TypeScript end-to-end (Node API + worker, React web, RN mobile) |
 | D8 | License | Apache-2.0 |
-| D9 | LLM providers | OpenAI-compatible + Anthropic + Azure OpenAI; exactly one active; admin-configured |
-| D10 | Sandbox | Docker per-run, pluggable executor interface |
+| D9 | LLM providers | OpenAI-compatible + Anthropic + Azure OpenAI; exactly one active **per company** (D20); admin-configured |
+| D10 | Sandbox | Docker per-run, pluggable executor interface; company image templates allowed since D21 |
 | D11 | Name | ProvaHR (locked) |
 | D12 | Question integrity | "Bulletproof" pool: HR designs only a blueprint; sealed encrypted pool; draw + variants; hidden cases; hard clock; void with renormalization |
 | D13 | Mobile | Native candidate app (React Native + Expo); HR console stays responsive web |
@@ -49,10 +52,17 @@ candidate's work for nobody.* ([docs/PLAN.md](PLAN.md) §1)
 | D15 | Identity | Keycloak OIDC for org users (Azure AD/SAML/LDAP via brokering); local dev JWT retained; candidates never touch Keycloak |
 | D16 | Setup | install.sh/cmd + self-locking `/setup` web wizard; compose stack |
 | D17 | Process | Parallel agents under disjoint file ownership; serial integration; QA waves audit against the never-regress list |
+| D18 | SaaS multi-tenancy | The install is a **platform**: `/setup` creates the SUPER_ADMIN only; companies (tenants) are created from the super-admin console |
+| D19 | Runtime auth config | Auth mode + Keycloak settings are **data** (PlatformSettings + CompanyAuthConfig), switchable in the portal — env vars remain boot-time fallbacks |
+| D20 | Company-scoped LLM providers | `LlmProvider.companyId`; each tenant brings its own keys; one active per company |
+| D21 | Company-scoped sandbox templates | Per-company sandbox image templates per language; builder resolves company template → platform default under identical hardening |
 
-**Roles:** `ADMIN` (providers, users, voids, everything), `RECRUITER` (jobs, JD,
-blueprints, pipeline), `INTERVIEWER` (read pipeline, write scorecards),
-candidate = **no account** (public board + one-time test link).
+**Roles:** `SUPER_ADMIN` (platform owner: tenants, platform settings — local
+sign-in always, no company), then per company `ADMIN` (providers, users,
+voids, Keycloak config, sandbox templates, everything company-side),
+`RECRUITER` (jobs, JD, blueprints, pipeline), `INTERVIEWER` (read pipeline,
+write scorecards); candidate = **no account** (public board + one-time test
+link).
 
 ---
 
@@ -63,11 +73,14 @@ candidate = **no account** (public board + one-time test link).
 ```
             ┌──────────────────────────────┐        ┌──────────────────────────────┐
             │  apps/web  (React + Vite)    │        │  apps/mobile (React Native  │
-            │  · HR console (/app/*)       │        │  + Expo) — candidate app:   │
-            │  · public board + test flow  │        │  board · apply · consent ·  │
-            │  · API base = same-origin    │        │  swipe test (API base is    │
-            │    /api (Vite proxy → :4000) │        │  absolute, default :4000)   │
-            └──────────────┬───────────────┘        └──────────────┬───────────────┘
+            │  · platform console (/app/   │        │  + Expo) — candidate app:   │
+            │    platform, SUPER_ADMIN)    │        │  board · apply · consent ·  │
+            │  · HR console (/app/*, per   │        │  swipe test (API base is    │
+            │    company) + admin settings │        │  absolute, default :4000)   │
+            │  · public board + test flow  │        │                              │
+            │  · API base = same-origin    │        └──────────────┬───────────────┘
+            │    /api (Vite proxy → :4000) │                       │
+            └──────────────┬───────────────┘                       │
                            │ REST /api (identical contract, packages/shared vocabulary)
                            ▼
    ┌───────────────────────────────────────────────────────────────────────────┐
@@ -76,27 +89,42 @@ candidate = **no account** (public board + one-time test link).
    │  entrypoint 1: src/index.ts  → dist/index.js   (HTTP API, port 4000)      │
    │  entrypoint 2: src/worker.ts → dist/worker.js  (background job loop)      │
    │                                                                           │
-   │  API side: auth · users · setup wizard · jobs/JD/blueprint/pool ·         │
-   │    public board/apply/test-session · applications/X-ray/void ·            │
-   │    interviews · stats · admin llm-providers                               │
+   │  PLATFORM LAYER (V2-1, super-admin-gated /api/platform):                  │
+   │    tenants (Company CRUD + first-ADMIN wizard), PlatformSettings          │
+   │    (runtime auth mode), read-only oversight of every tenant's             │
+   │    CompanyAuthConfig + SandboxTemplate rows                               │
+   │                                                                           │
+   │  API side: auth · users · setup wizard (v3: super admin only) ·           │
+   │    platform · jobs/JD/blueprint/pool · public board/apply/                │
+   │    test-session · applications/X-ray/void · interviews · stats ·          │
+   │    admin: llm-providers + auth-config + sandbox-templates                 │
+   │    (per company)                                                          │
    │  Worker side (claims rows from job_queue): JD_GENERATION ·                │
    │    SAMPLES_GENERATION · POOL_SEAL · EVALUATION                            │
-   └──────┬──────────────────────────────┬────────────────────────┬────────────┘
-          │ Prisma                       │ docker run (CODE       │ HTTPS
-          ▼                              │ answers, hardened      ▼
-   ┌─────────────────┐           │       argv only)    ┌────────────────────────┐
-   │  PostgreSQL 16  │           └─────────────────────►  LLM provider (exactly │
-   │  · 21 models    │                                  one active, BYO key):   │
-   │  · job_queue =  │                                  OpenAI-compatible ·     │
-   │    the DB queue │                                  Anthropic · Azure       │
-   │  · sealed pools │                                  OpenAI (also unlocks    │
-   │    (AES-GCM)    │                                  Ollama/vLLM/OpenRouter) │
-   └─────────────────┘                                  └────────────────────────┘
+   └──────┬──────────────────────────────┬───────────────────┬─────────────────┘
+          │ Prisma                       │ docker run (CODE  │ HTTPS
+          ▼                              │ answers, hardened ▼
+   ┌─────────────────┐           │       argv only)  ┌────────────────────────┐
+   │  PostgreSQL 16  │           └──────────────────►  LLM provider (exactly │
+   │  · 24 models    │                                one active PER COMPANY, │
+   │  · job_queue =  │                                BYO key, D20):         │
+   │    the DB queue │                                OpenAI-compatible ·    │
+   │  · sealed pools │                                Anthropic · Azure      │
+   │    (AES-GCM)    │                                OpenAI (also unlocks   │
+   │  · platform_    │                                Ollama/vLLM/OpenRouter)│
+   │    settings,    │                                └──────────────────────┘
+   │    company_auth_│
+   │    configs,     │
+   │    sandbox_     │
+   │    templates    │
+   └─────────────────┘
           ▲
-   ┌──────┴────────┐
-   │  Keycloak 26  │  (opt-in, OIDC_ENABLED=true; dev-file H2 store, realm
-   │  realm provahr│   import from deploy/keycloak; orgs federate their own
-   └───────────────┘   Azure AD / SAML / LDAP via identity brokering)
+   ┌──────┴─────────┐
+   │  Keycloak 26   │  (SSO mode, runtime-switchable D19: the platform env
+   │  realms, one   │   realm is the fallback; each company may configure
+   │  per company   │   ITS OWN realm via CompanyAuthConfig — multi-issuer,
+   │  (D19)         │   resolved per token `iss`; orgs federate their own
+   └────────────────┘   Azure AD / SAML / LDAP via identity brokering)
 ```
 
 **Reality notes that older diagrams got wrong:**
@@ -108,7 +136,15 @@ candidate = **no account** (public board + one-time test link).
   `apps/api/package.json`). `apps/worker` remains the promotion target if the
   worker ever outgrows the process (PLAN §7 note).
 - One **Postgres** is the source of truth for everything — including the job
-  queue (`job_queue` table; no Redis, no broker) and the sealed pools.
+  queue (`job_queue` table; no Redis, no broker), the sealed pools, and since
+  v2 the platform layer: `platform_settings` (the runtime auth mode),
+  `company_auth_configs` (per-tenant Keycloak verifiers) and
+  `sandbox_templates` (per-tenant sandbox images).
+- The auth mode is **data, not env** (D19): the middleware reads
+  `PlatformSettings.authMode` per request (10s cache) and falls back to
+  boot-time `OIDC_ENABLED` only when no row exists or the database is
+  unreadable. Switching modes in the portal applies on the next request — no
+  restart.
 - LLM providers are **mock-friendly**: any OpenAI-compatible endpoint works
   (Ollama, vLLM, OpenRouter, LM Studio), which is how the E2E live
   verification ran against a mock provider (`lib/llm/index.ts`,
@@ -118,12 +154,13 @@ candidate = **no account** (public board + one-time test link).
 
 | Component | What it is | Where defined |
 |---|---|---|
-| `api` | Express HTTP server; mounts `/api/*` routers + `/setup` wizard + `/health` | `apps/api/src/index.ts`, `src/app.ts` |
+| `api` | Express HTTP server; mounts `/api/*` routers (incl. `/api/platform`, `/api/admin`) + `/setup` wizard + `/health` | `apps/api/src/index.ts`, `src/app.ts` |
 | `worker` | Claim/dispatch loop over `job_queue`; graceful SIGINT/SIGTERM shutdown | `apps/api/src/worker.ts` |
-| `db` | PostgreSQL 16; Prisma schema (21 models) + committed migration `0001_init` (incl. 3 hand-written singleton indexes) | `apps/api/prisma/schema.prisma`, `docs/DATA_MODEL.md` |
-| `keycloak` | Opt-in OIDC identity provider (realm `provahr`); brokers Azure AD/SAML/LDAP | `docker-compose.yml`, `deploy/keycloak/`, `docs/RBAC.md` |
-| LLM provider | Exactly one active admin-configured provider; keys AES-256-GCM-encrypted at rest | `apps/api/src/lib/llm/`, `src/modules/admin/` |
-| web | React + Vite portal: HR console, public board, candidate test UI | `apps/web/src/` |
+| `db` | PostgreSQL 16; Prisma schema (24 models) + committed migrations `0001_init` → `0005_sandbox_templates` (3 hand-written partial unique indexes + the 0003 per-company swap + the 0004 enabled-issuer index) | `apps/api/prisma/schema.prisma`, `docs/DATA_MODEL.md` |
+| platform layer | Super-admin console: tenant CRUD, runtime settings, oversight of tenant auth-configs/sandbox-templates | `apps/api/src/modules/platform/`, `apps/web/src/platform/PlatformPage.tsx` |
+| `keycloak` | Opt-in OIDC identity provider; the env realm (`provahr`) is the platform fallback, per-company realms are data (D19); brokers Azure AD/SAML/LDAP | `docker-compose.yml`, `deploy/keycloak/`, `docs/RBAC.md` |
+| LLM provider | Exactly one active provider **per company** (D20); keys AES-256-GCM-encrypted at rest | `apps/api/src/lib/llm/`, `src/modules/admin/llm-providers.*` |
+| web | React + Vite portal: platform console (super admin), HR console, admin settings, public board, candidate test UI | `apps/web/src/` |
 | mobile | Expo candidate app (browse, apply, consent, swipe session) | `apps/mobile/src/` |
 
 ---
@@ -139,27 +176,28 @@ candidate = **no account** (public board + one-time test link).
 | `app.ts` | Express app factory: helmet, CORS, JSON limits (16mb on intake only), morgan with test-token log skip, all router mounts |
 | `env.ts` | Zod-validated env; refuses to boot in production on the public dev `SECRETS_KEY` |
 | `prisma.ts` / `types.ts` | Prisma singleton; shared `AuthUser` type |
-| `middleware/auth.ts` | `requireAuth` (dual-mode local JWT vs Keycloak OIDC) + `requireRole` |
+| `middleware/auth.ts` | `requireAuth` (dual-mode, data-driven: local JWT vs Keycloak OIDC with multi-issuer resolution + super-admin carve-out) + `requireRole` |
 | `middleware/error.ts` | Uniform error envelope; Zod → 400, body-parser 413 → `REQUEST_TOO_LARGE`, Prisma P2002 → 409 |
-| `modules/setup/` | First-run wizard: `GET /setup` page (CSP-safe same-origin JS) + status/install API; self-locking, rate-limited |
-| `modules/auth/` | Company + first-admin `register`, `login` (local mode), `me` |
+| `modules/setup/` | First-run wizard v3 (V2-1): `GET /setup` page (CSP-safe same-origin JS) + status/install API — bootstraps the **super admin only**; self-locking, rate-limited |
+| `modules/auth/` | Platform `register` (super admin, 409 once installed), `login` (local mode), `me`, `GET /mode` (runtime mode + perCompany flag) |
+| `modules/platform/` | The super-admin console API (V2-1..4, D18/D19): company CRUD + first-ADMIN wizard (`companies.*`), runtime settings (`settings.*`, 10s-cached mode read), `requireSuperAdmin` middleware, read-only oversight of all tenants' auth-configs and sandbox-templates |
 | `modules/users/` | Company user list/create (admin) |
 | `modules/jobs/` | The jobs spine: CRUD + status + pipeline listing (`jobs.*`), role intake → JD (`jd.*`), blueprint + samples + sealed pool (`blueprint.*`) |
 | `modules/public/` | Anonymous surface: board, detail, apply (`public.*`); consent meta + the whole candidate session engine (`session.*`) |
 | `modules/applications/` | Application detail/stage/status (`applications.*`), evaluation producer + X-ray + void (`evaluation.*`) |
 | `modules/interviews/` | Interview update + scorecard submit |
 | `modules/stats/` | Dashboard aggregates for the company |
-| `modules/admin/` | LLM provider CRUD + activate + live smoke test (admin-only, keys redacted) |
+| `modules/admin/` | Company-scoped admin API: LLM provider CRUD + activate + live smoke test (`llm-providers.*`, V2-2), Keycloak/OIDC config GET/PUT (`auth-config.*`, V2-3), sandbox image templates GET/PUT (`sandbox-templates.*`, V2-4) — keys redacted, everything filtered by `req.user.companyId` |
 | `lib/queue.ts` | DB-backed queue primitives: `enqueue`, atomic `claimNext`, `complete`/`fail` with backoff, `requeueStale` |
 | `lib/crypto.ts` | AES-256-GCM secret box (`v1.<iv>.<authTag>.<ciphertext>`) for provider keys and pool contents |
 | `lib/llm/` | Adapter layer: `types`, `errors` (secret-scrubbing), `http` (timeout/retry), `openai-compatible` / `anthropic` / `azure-openai`, `index` (factory + `getActiveAdapter` seam) |
-| `lib/sandbox/` | CODE execution: `builder` (pure hardened argv + exact-prefix checker), `docker` (spawn-only executor), `judge` (case comparison), `fake` (tests), `types`, `index` |
+| `lib/sandbox/` | CODE execution: `templates` (V2-4: platform image allow-list + safe-ref grammar + company-template resolution — pure), `builder` (pure hardened argv + exact-prefix checker, now parameterized by the RESOLVED image), `docker` (spawn-only executor, takes per-run image overrides), `judge` (case comparison), `fake` (tests), `types`, `index` |
 | `lib/session/` | `draw` (pure seeded draw + variant realization, compile-time truth-stripping), `clock` (deadline math, 60s submit grace) |
 | `lib/assessment/item.ts` | The canonical item vocabulary: 4 formats, zod schemas, blueprint sections, pool math (≥6× draw) |
 | `lib/scoring/` | `swipe` (per-option partial credit) and `mcq` (all-or-nothing) — pure |
 | `lib/testTokens.ts` | One-time link tokens: mint 43-char URL-safe, sha256-hash storage, shape check |
 | `lib/token.ts` | Local-mode HS256 JWT sign/verify |
-| `lib/oidc.ts` | OIDC verification: RS256-only, issuer+audience, JWKS cache with rotation handling |
+| `lib/oidc.ts` | OIDC verification: RS256-only, issuer+audience, per-issuer JWKS cache with rotation handling |
 | `lib/roles.ts` | Role precedence mapping (ADMIN > RECRUITER > INTERVIEWER) |
 | `lib/rateLimit.ts` | Generic fixed-window in-memory per-IP limiter |
 | `lib/urlFetch.ts` | SSRF-guarded page fetch + text extraction for role intake |
@@ -177,7 +215,11 @@ candidate = **no account** (public board + one-time test link).
 | `public/JobBoard.tsx` | Public board (`/`) |
 | `public/JobDetail.tsx` | Job detail + apply form; renders the one-time link with copy + unrecoverable warning |
 | `public/TestFlow.tsx` | Candidate test flow (`/test/:token`): consent → session (all 4 formats, autosave, review pass, countdown + auto-submit in grace) → `Submitted ✓` |
-| `hr/Login.tsx`, `hr/Register.tsx` | Local-mode auth pages |
+| `hr/Login.tsx`, `hr/Register.tsx` | Local-mode auth pages (register = platform bootstrap, super admin) |
+| `platform/PlatformPage.tsx` | Super-admin console (`/app/platform`): companies table + "New company" wizard modal (tenant + first ADMIN in one POST), auth-mode switch card, all-tenant sandbox-template oversight |
+| `admin/ProvidersPage.tsx` | Company LLM providers (V2-2): CRUD, activate, smoke test |
+| `admin/TeamPage.tsx` | Company team & RBAC invites |
+| `admin/SettingsPage.tsx` | Company settings (V2-3/V2-4): live auth-mode readout, the company's Keycloak config (issuer/audience/enabled), per-language sandbox image templates |
 | `hr/Dashboard.tsx` | Company dashboard (`GET /api/stats`) |
 | `hr/JobsPage.tsx` | Job list → open console |
 | `hr/JobConsole.tsx` | The PLAN §4 loop on one page: JD poll/edit/approve → blueprint → samples → seal → publish |
@@ -206,9 +248,23 @@ kinds); one source of truth for api/web/mobile contracts.
 
 ## 4. The core loop as a data flow
 
+**Platform bootstrap (before any of the loop can run, V2-1/D18):**
+
+```
+ 0. PLATFORM BOOTSTRAP
+      fresh install → GET /setup (wizard v3, self-locking)
+        POST /api/setup/install {adminName, adminEmail, adminPassword}
+          → users (role=SUPER_ADMIN, companyId=null)     [setup.service → register()]
+      super admin signs in → POST /api/platform/companies (company wizard)
+          → companies + users (first ADMIN)              [one transaction — companies.service.ts]
+      the ADMIN signs in and owns the company from the inside:
+        LLM keys (V2-2) · Keycloak realm (V2-3) · sandbox images (V2-4) · team
+```
+
 The loop below is PLAN §4, annotated with **the tables actually written/read**
 at each step (verified in the services cited). Notation: `→` writes,
-`·` reads.
+`·` reads. Every step is scoped to the caller's company (tenant isolation is
+the `companyId` filter threaded through every service).
 
 ```
  1. INTAKE          HR POST /api/jobs/intake (notes + URLs + screenshots)
@@ -263,9 +319,22 @@ submit → `test_sessions`+`job_queue(EVALUATION)`; evaluation → `evaluations`
 
 ## 5. Sequence diagrams
 
-### 5.1 HR: intake → JD → approve → blueprint → seal → publish
+### 5.1 Platform bootstrap, then HR: companies → intake → JD → approve → blueprint → seal → publish
 
 ```
+Setup/API         SUPER_ADMIN(web)      API(/api/platform)          DB
+  │ POST /setup/install (wizard v3)     │                          │
+  ├──────────────►│ (name,email,pw)     │                          │
+  │               ├─────────────────────► users(SUPER_ADMIN,       │
+  │               │                     │  companyId=null) ──────►│
+  │               │◄─ 201 {installed} ────┤ wizard hard-locks        │
+  │               │ POST /companies + firstAdmin (one tx)          │
+  │               ├────────────────────►│ companies + users(ADMIN)►│
+  │               │◄─ 201 {company, admin} — slug auto-freed       │
+  │               │ PATCH/DELETE /companies/:id — rename/delete    │
+  │               │ PUT /settings {authMode} → runtime switch      │
+  │ (the ADMIN signs in at /login and runs the loop below)         │
+
 HR(web)         API(/api/jobs)            job_queue         WORKER            LLM/DB
   │                 │                        │                │                 │
   │ POST /intake    │                        │                │                 │
@@ -377,33 +446,65 @@ job_queue      WORKER                    DB                        Docker       
    └──────────────┴───────────────────────┴───────────────────────────┴─────────────┘
 ```
 
-### 5.4 Auth: dual mode (local JWT vs Keycloak OIDC; Azure AD via brokering)
+### 5.4 Auth: dual mode, decided by DATA (local JWT vs Keycloak OIDC; D19)
 
 ```
-Client            API requireAuth                     Keycloak/DB
+Client            API requireAuth                     Postgres/Keycloak
   │  Authorization: Bearer <token>                    │
   ├────────────────►│                                  │
-  │                 │ OIDC_ENABLED?                    │
-  │                 ├─ false ── local mode ────────────┤
-  │                 │  verify HS256 w/ JWT_SECRET      │
+  │                 │ getAuthMode(): PlatformSettings │
+  │                 │  .authMode (10s cache; env ────►│ platform_settings
+  │                 │  OIDC_ENABLED only as fallback  │ (singleton row)
+  │                 │  when no row / db unreadable)   │
+  │                 ├─ 'local' ─ local mode ──────────┤
+  │                 │  verify HS256 w/ JWT_SECRET     │
   │                 │  load user from Postgres ───────►│ users (by token sub)
-  │                 │  (deleted/disabled ⇒ 401 now)    │
-  │                 ├─ true ─── OIDC mode ─────────────┤
-  │                 │  verify RS256 (alg pinned)       │
-  │                 │  issuer + audience checked       │
-  │                 │  key by kid from JWKS cache ────►│ /.well-known/openid-
-  │                 │  (10 min cache; unknown kid ⇒   │  configuration → jwks_uri
-  │                 │   one throttled refresh)         │
-  │                 │  mapRoles: ADMIN>RECRUITER>      │
-  │                 │  INTERVIEWER; none ⇒ 403         │
-  │                 │  provision/sync user row ───────►│ users upsert (email join;
-  │                 │  (company must exist else 503    │  random unknowable
-  │                 │   SETUP_REQUIRED)                │  passwordHash)
-  │◄────────────────┤ req.user attached; requireRole() gates the route
+  │                 │  (deleted/disabled ⇒ 401 now;   │
+  │                 │   SUPER_ADMIN passes w/ null    │
+  │                 │   companyId; company-less other │
+  │                 │   roles are inert 401s — D18)   │
+  │                 ├─ 'oidc' ── SSO mode ────────────┤
+  │                 │  local-token carve-outs (D19):  │
+  │                 │   verifies locally AND is the   │
+  │                 │   SUPER_ADMIN ⇒ PASS (lockout   │
+  │                 │   safety — rule 1)               │
+  │                 │   is a company user ⇒ 403       │
+  │                 │   SSO_MODE_ACTIVE (rule 2)      │
+  │                 │  otherwise → multi-issuer path  │
+  │                 │   (diagram 5.5)                 │
+  │◄────────────────┤ req.user attached; requireRole() gates company routes,
+  │                 │ requireSuperAdmin() gates platform routes
   │                 │                                  │
-  │ Azure AD users: sign in via Keycloak IDENTITY BROKERING (org's own tenant);
-  │ ProvaHR only ever talks to Keycloak — no code changes when brokers change.
+  │ Azure AD users: sign in via the company's Keycloak realm (identity
+  │ brokering — the org's own tenant); ProvaHR only ever talks to Keycloak,
+  │ so no code changes when brokers change.
   └─────────────────┴──────────────────────────────────┘
+```
+
+### 5.5 SSO mode: multi-issuer token resolution (V2-3, D19)
+
+```
+Client        requireAuth.ssoAuth          CompanyAuthConfig / env      Keycloak realm
+  │ Bearer <RS256 token>                       │                          │
+  ├───────────►│ decode `iss` UNVERIFIED ──┐   │                          │
+  │            │ (selection input ONLY —   │   │                          │
+  │            │  never trusted data; a    │   │                          │
+  │            │  forged iss only picks    │   │                          │
+  │            │  the verifier that will   │   │                          │
+  │            │  reject it)               ▼   │                          │
+  │            │ findFirst {issuerUrl: iss, enabled: true}                │
+  │            │  ├─ hit  → cfg {issuerUrl, audience, companyId} ─────────│ this company's realm
+  │            │  ├─ miss  → iss === env.OIDC_ISSUER_URL ?                │
+  │            │  │           {env issuer, env audience, companyId:null}──│ platform-default realm
+  │            │  └─ else  → 401 UNAUTHENTICATED (unknown issuer)         │
+  │            │ verify RS256 against cfg: issuer (exact string),         │
+  │            │  audience, kid→JWKS (per-issuer 10-min cache) ──────────►│ /.well-known/jwks
+  │            │ mapRoles: ADMIN>RECRUITER>INTERVIEWER; none ⇒ 403        │
+  │            │ provision: user anchored to cfg's company ──► users upsert
+  │            │  (env-default path keeps V2-1 first-company join;
+  │            │   random unknowable passwordHash — no local login)
+  │◄───────────┤ req.user {role, companyId of the matched tenant}
+  └────────────┴──────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -436,8 +537,9 @@ the wave-4/6 gates.
 - **Tested**: the canary-seeded route matrix
   `apps/api/tests/integration/blueprint-pool.test.ts` seeds known plaintext into
   the pool and asserts **no endpoint, for any role (admin included), ever
-  returns it**. It runs when `INTEGRATION_DB=1` with a reachable Postgres (CI
-  provides both; locally the 16 tests skip visibly).
+  returns it**. It runs when `INTEGRATION_DB=1` with a reachable Postgres (the
+  tier's first real run was the live V2-1 gate; without the flag the 16 tests
+  skip visibly — see §7.4 on CI).
 - Sample items are preview-only **by construction** — the draw path reads only
   `sealed_question_pools.itemsEncrypted`, never `sample_items`.
 
@@ -478,11 +580,14 @@ shell strings, so no quoting/injection surface). Flags: `--rm`,
 `--network none`, `--read-only` rootfs + tmpfs `/tmp:rw,size=16m,exec`,
 `--pids-limit 64`, `--memory 256m --memory-swap 256m` (swap off), `--cpus 0.5`,
 `--user 65534:65534` (non-root), `--stop-timeout`, `-i` (program travels via
-**stdin**, never a host mount). Image allow-list: `bash:5.2`, `node:20-alpine`,
-`python:3.12-alpine` (the bash tag was fixed by the live E2E run — see §9).
-Runtime backstop: `assertHardenedArgs` enforces **default-deny exact-prefix**
-matching — the flag region must *exactly equal* a canonical hardened prefix for
-an allow-listed language (docker's last-occurrence-wins semantics make
+**stdin**, never a host mount). Image resolution (V2-4, D21): platform default
+allow-list `bash:5.2`, `node:20-alpine`, `python:3.12-alpine` (the bash tag was
+fixed by the live E2E run — see §9), **overridable per company** by an enabled
+`SandboxTemplate` row with a grammar-safe reference — see §6.10 for why an
+override changes *which* container runs, never *how* it runs. Runtime
+backstop: `assertHardenedArgs` enforces **default-deny exact-prefix**
+matching — the flag region must *exactly equal* a canonical hardened prefix
+for the RESOLVED image (docker's last-occurrence-wins semantics make
 "contains the right flags" worthless: `--network none --network host` would
 pass). It runs at DockerExecutor construction (boot fail-fast) and before every
 spawn. Tokens after the image are the candidate's own program argv — inert
@@ -516,6 +621,48 @@ Decrypt failures are uniform (`CRYPTO_ERROR`) — never an oracle for why.
 never appear in responses (last-4 only) and are scrubbed from provider error
 messages (`lib/llm/errors.ts`).
 
+### 6.9 Multi-issuer OIDC: why the unverified `iss` hop is safe (V2-3, D19)
+
+In SSO mode the middleware decodes the token's `iss` claim **without signature
+verification** to select which stored configuration verifies the token
+(`resolveOidcConfig` in `middleware/auth.ts`). This is safe because the claim
+is used **only to choose key material from trusted storage — never to build a
+URL or to trust an identity**: `jwt.verify` then enforces `issuer` (raw-string
+comparison against the selected config's `issuerUrl`), `audience`, and the
+RS256 signature, so a forged `iss` merely picks the verifier that will reject
+the forgery. It is the same trust shape as the pre-existing `kid` header →
+JWKS lookup: untrusted input selects, cryptography decides. Backstops: one
+**enabled** config per issuer (partial unique index, migration 0004 + a 409
+pre-check), a database error degrades to the env-default branch (company
+issuers then fail closed), and the two carve-outs of §5.4 guarantee a broken
+realm can never lock the platform owner out while company credentials cannot
+outlive SSO mode locally (`SSO_MODE_ACTIVE`).
+
+### 6.10 Tenant isolation + template hardening (V2-2/V2-4)
+
+- **Every company-scoped service filters by `req.user.companyId`** — a
+  provider/auth-config/template of another tenant is indistinguishable from a
+  missing one (same 404, no existence oracle). The company-less `SUPER_ADMIN`
+  never passes `requireRole`, so it cannot reach company-scoped services at
+  all; conversely `requireSuperAdmin` gates the platform console.
+- **Template hardening law (D21, never weaken):** an image override changes
+  WHICH container runs, never HOW it runs — the docker flag region
+  (`--network none`, `--read-only`, `--user 65534:65534`, …) is byte-identical
+  for default and template images, and `assertHardenedArgs` rebuilds its
+  canonical prefix from the RESOLVED image. `isSafeImageRef`
+  (`lib/sandbox/templates.ts`) accepts only a lowercase docker-ref grammar
+  (≤100 chars, no flags/metachars/digests); it is enforced at zod-validate
+  time, at upsert time, at build time, and — defense in depth — an unsafe
+  stored row silently resolves back to the platform default so evaluation
+  never goes down.
+- **Docker socket mount (operator-facing):** the worker executes candidate
+  code through the HOST's docker daemon (docker-outside-of-docker;
+  `docker-compose.yml` mounts `/var/run/docker.sock`). That socket is
+  root-equivalent on the host: acceptable for a self-hosted single-operator v1
+  (all tenants' code is hardened per §6.6, but they DO share one daemon and
+  kernel). Socket-mount isolation per tenant is tracked in the post-v2
+  backlog.
+
 ---
 
 ## 7. Operating it
@@ -524,16 +671,22 @@ messages (`lib/llm/errors.ts`).
 
 1. **Scripts**: `bash scripts/install.sh [--seed]` (or `scripts/install.cmd` on
    Windows) — checks Node ≥ 20, installs workspaces, creates `apps/api/.env`
-   from `.env.example`, generates the Prisma client, applies the schema
-   (`prisma migrate deploy`, falling back to `db push` only while no migrations
-   exist — migrations exist now, so deploy runs), optional demo seed.
+   from `.env.example`, generates the Prisma client, applies the migrations
+   (`prisma migrate deploy`; 0001–0005), optional demo seed.
 2. **Wizard**: first boot on a fresh database → open
-   `http://localhost:4000/setup` — the self-locking wizard creates the company
-   + first admin, then hard-locks (`GET /api/setup/status` stays, POST 409s).
+   `http://localhost:4000/setup` — the self-locking wizard (v3) creates the
+   **platform super admin only** (no company), then hard-locks
+   (`GET /api/setup/status` stays, POST 409s). Companies are created next,
+   from the super-admin console (`POST /api/platform/companies`, optionally
+   with the tenant's first ADMIN in the same request).
 3. **Compose**: `docker compose up -d --build` starts `db` (postgres:16) +
    `keycloak` (dev-file H2, realm import from `deploy/keycloak`, port 8081) +
-   `api` (built from `apps/api/Dockerfile`; migrate-on-boot; `NODE_ENV=production`
-   with its own dev `SECRETS_KEY` so the boot guard allows it — **change it**).
+   `api` (built from `apps/api/Dockerfile`; migrate-on-boot;
+   `NODE_ENV=production` with its own dev `SECRETS_KEY` so the boot guard
+   allows it — **change it**) + `worker` (same image, ALSO migrate-on-boot —
+   a fresh volume can never race the API's boot-time migrate; mounts the
+   host's `/var/run/docker.sock` for CODE answers, see the security note in
+   §6.10).
 
 ### 7.2 Running the worker
 
@@ -556,7 +709,10 @@ dev`) or your shell profile. A `--env-file` switch for the dev scripts is a
 tracked backlog item. Variables: `DATABASE_URL`, `JWT_SECRET`, `SECRETS_KEY`,
 `NODE_ENV`, `PORT` (4000), `JWT_EXPIRES_IN` (12h), `CORS_ORIGIN`, `OIDC_ENABLED`
 (false), `OIDC_ISSUER_URL`, `OIDC_AUDIENCE` (provahr-api), `WORKER_POLL_MS` —
-full table in [docs/SELF_HOSTING.md](SELF_HOSTING.md).
+full table in [docs/SELF_HOSTING.md](SELF_HOSTING.md). Since V2-3 the three
+`OIDC_*` variables are **fallbacks only** (D19): the live auth mode is the
+`platform_settings` row, and per-company issuers live in `company_auth_configs`
+— both managed from the portal, no restart.
 
 ### 7.4 CI tiers
 
@@ -567,16 +723,22 @@ full table in [docs/SELF_HOSTING.md](SELF_HOSTING.md).
   tier** (the sealed-pool canary matrix's 16 tests) on every push/PR.
 - **shared**: typecheck of `packages/shared`.
 
+Truth-in-advertising: the repo has **no remote**, so CI has **never actually
+run** — the workflow is verified by inspection, and the integration tier's
+first real execution was the live V2-1 gate run (16/16 on a local Postgres).
+First CI run is a tracked post-v2 backlog item.
+
 ---
 
 ## 8. Testing
 
 Tier table (T1 unit → T8 property-based) and the per-phase contract:
-[docs/TESTING.md](TESTING.md). The suite today: **386 passed + 16 skipped**
-(the 16 = the CI-gated integration tier, which runs for real in CI). All tests
-live in `apps/api/tests/*.test.ts` (25 files: queue, urlFetch, jd/blueprint/
-session/evaluation routes, crypto, llm adapters, oidc, sandbox builder + judge,
-scoring, draw, tokens, setup, admin, apply, pipeline, jobStatus, …) plus
+[docs/TESTING.md](TESTING.md). The suite today: **483 passed + 16 skipped
+= 499 total** (the 16 = the CI-gated integration tier, which runs for real in
+CI). All tests live in `apps/api/tests/*.test.ts` (29 files: queue, urlFetch,
+jd/blueprint/session/evaluation routes, crypto, llm adapters, oidc, sandbox
+builder + judge + templates, scoring, draw, tokens, setup, admin, platform
+routes, auth-multitenant, apply, pipeline, jobStatus, …) plus
 `apps/api/tests/integration/blueprint-pool.test.ts`.
 
 **The repeat-run discipline** (process lesson, wave 2): a single green run of a
@@ -621,7 +783,21 @@ verified by live pull. (2) The documented `.env` flow is broken — nothing
 loads `.env` (see §7.3). Fail-closed pool sealing also behaved as designed
 against a misbehaving mock provider (bounded retries, clean FAILED rows).
 
-### 9.3 Post-MVP backlog (from PROGRESS.md)
+### 9.3 The v2 SaaS waves (2026-08-29 → 2026-08-31, V2-1..V2-5)
+
+Founder pivot after the v1 E2E live run: the install becomes a multi-tenant
+platform (D18–D21, PLAN §12). Each wave shipped with tests, a live E2E
+regression pass, and a git checkpoint; details in [PROGRESS.md](../PROGRESS.md).
+
+| Wave | Shipped | E2E / integration catches |
+|---|---|---|
+| V2-1 | Multi-tenant core: `SUPER_ADMIN` role, nullable `User.companyId`, `PlatformSettings` + migration 0002, platform router (company CRUD + settings), wizard v3 (super admin only) | The CI-gated integration tier ran **live for the first time** (16/16 on a real Postgres) and exposed 2 latent test bugs (fixed); the 0002 drop of 0001's single-company index is what made tenants legal |
+| V2-2 | Company-scoped LLM providers: `LlmProvider.companyId` (migration 0003), tenancy-threaded services + admin UI | **Worker/migrate race**: on a fresh volume the worker crashed P2021 on `job_queue` because the API's boot-time migrate had not finished — the worker now migrates on boot too; **worker docker ENOENT**: sandbox spawn needed the host socket + CLI inside the image (compose mount); **index swap**: 0001's global single-active became per-company (`(companyId) WHERE isActive`) or the second tenant's activation would die |
+| V2-3 | Runtime per-company Keycloak: `CompanyAuthConfig` (migration 0004, enabled-issuer partial unique), multi-issuer middleware, portal switch + company config UI, super-admin carve-outs | Lockout carve-out **live-proven**: with SSO on, the super admin still signs in locally while company locals get `SSO_MODE_ACTIVE`; the mode switch verified effective on the very next request (no restart) |
+| V2-4 | Company sandbox templates: `SandboxTemplate` (migration 0005), `lib/sandbox/templates.ts` resolution + safe-ref grammar, parameterized exact-prefix hardening, company + platform UIs | Template save + unsafe-image reject verified live; the hardened argv is byte-identical under an override (parameterized exact-prefix — the default argv is itself rejected in override mode, so a stale prefix can never pass) |
+| V2-5 | Docs reconciliation (this sweep): every doc tells the platform story | — |
+
+### 9.4 Post-MVP / post-v2 backlog (from PROGRESS.md)
 
 Stage-enum migration (TEST/REVIEW as real enum values; the AI-loop board is
 rules-level today) · `VoidedItem` FK to jobs/users (plain strings now) ·
@@ -630,8 +806,9 @@ live-docker sandbox verification of containment (network-kill/uid/runaway-kill)
 (completing PLAN §5.2 mechanism 2) · error-log redaction · manual
 redirect-loop handling in `urlFetch` · screenshot retention window + erasure
 endpoint (PLAN §10) · CI first-run observation of the integration tier ·
-`--env-file` for dev scripts. (The owed CODE-format evaluation test landed with
-wave 10.)
+`--env-file` for dev scripts · **CI has never run (no remote)** · automated
+E2E tier (T7) · docker socket-mount isolation per tenant. (The owed CODE-format
+evaluation test landed with wave 10.)
 
 ---
 
@@ -639,8 +816,8 @@ wave 10.)
 
 | Topic | Canonical document |
 |---|---|
-| Product, scope, decisions D1–D17, roadmap | [docs/PLAN.md](PLAN.md) |
-| Schema, 21 models, field-level docs, migration-managed indexes | [docs/DATA_MODEL.md](DATA_MODEL.md) |
+| Product, scope, decisions D1–D21, roadmap | [docs/PLAN.md](PLAN.md) |
+| Schema, 24 models, field-level docs, migration-managed indexes | [docs/DATA_MODEL.md](DATA_MODEL.md) |
 | Every route: method, path, role, shapes, error codes | [docs/API.md](API.md) |
 | Test tiers, per-phase contract, never-regress list | [docs/TESTING.md](TESTING.md) |
 | Install, env vars, LLM providers, upgrades, proxy notes | [docs/SELF_HOSTING.md](SELF_HOSTING.md) |

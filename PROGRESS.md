@@ -1,36 +1,34 @@
 # ProvaHR — Progress Tracker
 
 > **🔧 RESUME HERE (reboot/recovery checkpoint)**
-> 1. Repo is a git repository: wave boundaries are commits — `git log --oneline`.
-> 2. **v1 (phases 0-10) COMPLETE + E2E-proven.** FOUNDER PIVOT (2026-08-29,
->    live test): **SaaS multi-tenancy** — decisions D18–D21 + v2 phase plan
->    appended to PLAN.md §12.1. Read those before any v2 work.
-> 3. In flight: **V2-1 multi-tenant core** (Agent PLATFORM): SUPER_ADMIN role,
->    nullable companyId, PlatformSettings, migration 0002, company CRUD,
->    wizard v3 (super admin only). Then V2-2 (company LLM), V2-3 (runtime
->    Keycloak per company — founder explicitly wants the switch IN THE
->    PORTAL), V2-4 (company sandbox image templates, e.g. Java), V2-5 (docs
->    sweep incl. BIBLE).
-> 4. Live stack (founder testing): compose up at :4000/:5173; DB currently
->    FRESH (wizard v2 unlocked) — reset again after V2-1 lands.
-> 5. **Process rules (founder directives 2026-08-29):** (a) docs sync is part
->    of EVERY v2 wave's DoD — no end-loaded doc sweep (V2-5 becomes the final
->    reconciliation, not the only update); (b) a live E2E regression pass
->    (compose + mock LLM + full loop) runs after each v2 wave's gate;
->    (c) **graphify code map committed** (`graphify-out/`, regen at every wave
->    gate; `python -m graphify extract apps --code-only && python -m graphify
->    cluster-only apps`). (d) **PRE-DISPATCH GRAPH RITUAL (founder rule,
->    2026-08-29): before delegating ANY task, the orchestrator queries
->    graphify for every node the change will engage (explain <seam> → the
->    importer/caller list) and bakes the resulting file:line blast radius
->    into the agent spec.**
-> 4. Open test-sweep items: CODE-format evaluation test; CI first-run of the
->    integration tier.
-> 5. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc --noEmit
->    && npx vitest run` (×2; expect 375+16 before wave 9 lands).
+> 1. Repo is a git repository: wave boundaries are commits — `git log --oneline`
+>    (18 checkpoints through V2-4; V2-5 docs commit pending).
+> 2. **v2 (V2-1..V2-5) COMPLETE + v1 before it.** SaaS multi-tenancy shipped
+>    per PLAN.md §12 D18–D21 / §12.1: super-admin platform core + wizard v3,
+>    company-scoped LLM providers, runtime per-company Keycloak
+>    (multi-issuer + super-admin lockout carve-out), company sandbox
+>    templates, docs reconciled (V2-5, 2026-08-31).
+> 3. **Next: founder demo** — fresh stack (`docker compose up -d --build` on
+>    a clean volume) + guided walkthrough of the platform story: wizard v3 →
+>    super admin → companies → per-tenant providers/Keycloak/templates → the
+>    full candidate loop.
+> 4. **Post-v2 backlog:** CI has never run (no remote) · automated E2E tier
+>    (T7) · Stage-enum migration (TEST/REVIEW) · shared rate-limiter store ·
+>    per-session data variants (v1 variants reorder options only) · docker
+>    socket-mount isolation per tenant · live-docker containment
+>    verification · retention window + erasure endpoint · `--env-file` for
+>    dev scripts · VoidedItem FK.
+> 5. **Process rules (founder directives 2026-08-29, still in force):**
+>    (a) docs sync is part of EVERY wave's DoD; (b) a live E2E regression
+>    pass after each wave's gate; (c) graphify code map committed at
+>    `graphify-out/`, regen at every wave gate; (d) pre-dispatch graph ritual
+>    before delegating any task.
+> 6. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc
+>    --noEmit && npx vitest run` (v2 close state: **483 passed + 16
+>    CI-gated = 499**, re-verified 2026-08-31 during V2-5).
 
 > **Living document — updated after every work session.**
-> Last updated: 2026-08-29 · Maintained by: main harness agent
+> Last updated: 2026-08-31 · Maintained by: main harness agent
 
 | | |
 |---|---|
@@ -352,6 +350,41 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-08-31 (V2-5 CLOSED — v2 complete: docs reconciled to the platform
+  model)** — Every doc now tells the SaaS-multi-tenant story truthfully,
+  verified against code: **BIBLE.md** (D18–D21 in the decision list; §2
+  architecture + platform layer; §3 module map +`modules/platform/`,
+  admin auth-config/sandbox-templates, `lib/sandbox/templates.ts`, web
+  platform/admin pages; §4 platform bootstrap flow; §5 diagrams — 5.1 starts
+  with super-admin wizard + company creation, 5.4 dual-mode now data-driven,
+  NEW 5.5 multi-issuer resolution; §6 +multi-issuer safety argument, template
+  hardening, docker-socket note; §7 ops; §8 499 suite; §9 v2 wave history;
+  Last verified 2026-08-31). **API.md** (+`/api/platform/*` companies CRUD /
+  settings / auth-configs / sandbox-templates; +admin auth-config &
+  sandbox-templates; `GET /api/auth/mode` now `{mode, perCompany}`; register
+  = super admin, no `companyName`; setup/install likewise). **RBAC.md**
+  rewritten: SUPER_ADMIN local-only + lockout carve-outs, per-company
+  Keycloak via PORTAL, multi-issuer resolution, `SSO_MODE_ACTIVE`, wizard v3
+  flow — zero "restart the API" instructions (mode and issuers are data).
+  **SELF_HOSTING.md** rewritten as the multi-tenant operator guide
+  (super-admin first run, companies, per-tenant providers/keycloak/
+  templates, docker-socket security note, `.env`-not-auto-loaded truth,
+  compose incl. worker migrate-on-boot). **DATA_MODEL.md** (+PlatformSettings,
+  CompanyAuthConfig, SandboxTemplate; User.companyId nullable;
+  LlmProvider.companyId; migration-managed index table: 0001 single-active →
+  0003 per-company swap, 0004 enabled-issuer, singleton dropped in 0002;
+  24 models, migrations 0001–0005). **PLAN.md** §12.1 V2-1..V2-5 ✅ with
+  dates; D6/D10 one-line supersession notes. **README.md** banner (SaaS
+  platform, v2 complete), structure tree (+platform module), roadmap
+  checkmarks. TESTING.md T3 tenancy note refreshed (between companies, not
+  installs). Gate: `tsc --noEmit` clean + **483 passed + 16 skipped = 499**
+  (untouched-proof, run once during the sweep). *v2 code waves recap (commits
+  carry the detail): V2-1 multi-tenant core (2026-08-29, integration tier
+  live 16/16 on first real run); V2-2 company-scoped LLM providers
+  (2026-08-29, +worker/migrate race +docker-socket E2E catches); V2-3
+  runtime per-company Keycloak (2026-08-31, multi-issuer + carve-outs
+  live-proven, 431+16); V2-4 sandbox templates (2026-08-31, parameterized
+  exact-prefix, 483+16).* *(main + Agent SCRIBE)*
 - **2026-08-29 (E2E LIVE VERIFICATION — full loop proven)** — Real run on
   this machine: Docker engine + compose Postgres + **first-ever execution of
   migration 0001** (all singleton indexes applied and verified via \di) +

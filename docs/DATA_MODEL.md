@@ -1,19 +1,27 @@
 # Data Model
 
-**Last verified: 2026-08-29** — against [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma)
-(waves 0–8) and the first committed migration
-[`apps/api/prisma/migrations/0001_init/migration.sql`](../apps/api/prisma/migrations/0001_init/migration.sql).
+**Last verified: 2026-08-31** — against [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma)
+(24 models, waves 0–8 + v2 waves V2-1..V2-4) and the committed migrations
+[`0001_init`](../apps/api/prisma/migrations/0001_init/migration.sql) →
+[`0005_sandbox_templates`](../apps/api/prisma/migrations/0005_sandbox_templates/migration.sql).
 
 Conventions: IDs are cuids; all timestamps are UTC; tables are snake_case
 (`@@map`), columns keep camelCase names (quoted in SQL). Candidates are **not**
-users — they interact only with the public portal. One company per install
-(single-tenant MVP; the Company entity survives so multi-tenancy can be added
-later without a migration).
+users — they interact only with the public portal. Since v2 (D18) an install
+is a **multi-tenant platform**: many `Company` rows (created by the super
+admin), each owning its users, jobs, providers, Keycloak config and sandbox
+templates.
 
 ## Entity overview
 
 ```
-Company ─┬─< User                     LlmProvider (admin-configured, ≤1 active)
+PlatformSettings (singleton: runtime auth mode)          [V2-1]
+
+Company ─┬─< User (SUPER_ADMIN rows live OUTSIDE companies: User.companyId is
+         │        nullable since 0002 — the platform owner owns no tenant)
+         ├─1? CompanyAuthConfig (the tenant's Keycloak verifier)   [V2-3]
+         ├─< SandboxTemplate (per language image override)         [V2-4]
+         ├─< LlmProvider (company-scoped; ≤1 active PER COMPANY)   [V2-2]
          └─< Job ─┬─ TestBlueprint ─< SealedQuestionPool   (the sealed pool)
                   ├─< SampleItem                          (preview-only)
                   ├─< TestSession ─┬─< SessionQuestion ─┬─1 Answer
@@ -34,21 +42,68 @@ JobQueue (DB-backed work queue)      VoidedItem (item void ledger, per job)
 
 | Field | Type | Purpose |
 |---|---|---|
-| `name` / `slug` | string, slug unique | Display name + URL slug |
+| `name` / `slug` | string, slug unique | Display name + URL slug (slug is stable across renames; collisions get a short random suffix) |
 | `website`, `logoUrl` | string? | Optional branding |
 
-Singleton invariant: the setup wizard self-locks once a company exists and
-`register()` 409s; backed at the DB level by migration-managed
-`companies_singleton_idx` (see [Migration-managed indexes](#migration-managed-indexes)).
+Created/renamed/deleted by the **super admin** (`/api/platform/companies`);
+deletion cascades the tenant's users, jobs and downstream data. The v1
+single-company invariant (`companies_singleton_idx`) was **dropped in
+migration 0002** — the install lock is now "a SUPER_ADMIN exists"
+(service-level, so more super admins can be added later without a schema
+change).
 
-### User (HR team member)
+### User (HR team member / platform owner)
 
 | Field | Type | Purpose |
 |---|---|---|
 | `email` | string, unique | Login identifier |
 | `passwordHash` | string | bcrypt |
-| `role` | `ADMIN` \| `RECRUITER` \| `INTERVIEWER` | RBAC ([docs/RBAC.md](RBAC.md)) |
-| `companyId` | FK | Tenant scope — every HR query filters on it |
+| `role` | `SUPER_ADMIN` \| `ADMIN` \| `RECRUITER` \| `INTERVIEWER` | RBAC ([docs/RBAC.md](RBAC.md)) |
+| `companyId` | FK, **nullable** (0002) | Tenant scope — every HR query filters on it. `null` + `SUPER_ADMIN` = the platform owner; a company-less row of any other role is inert |
+
+`SUPER_ADMIN` was added to the enum in migration 0002 (PostgreSQL 12+ allows
+`ADD VALUE` inside the migration transaction).
+
+### PlatformSettings (V2-1, D19)
+
+Singleton row (id `'singleton'`, seeded by migration 0002): `authMode`
+(`'local'` | `'oidc'`, default `'local'`) — the runtime sign-in mode the auth
+middleware reads per request (10s cache). The env `OIDC_ENABLED` is the
+boot-time fallback. Read fails open (login UX must never 500); writes refresh
+the cache immediately.
+
+### CompanyAuthConfig (V2-3, D19)
+
+One per company (unique on `companyId`): the tenant's Keycloak/OIDC verifier
+as **data**.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `companyId` | FK, unique | The owning tenant (cascade delete) |
+| `issuerUrl` | string | The realm's issuer — the `iss` claim tokens must carry |
+| `audience` | string | The Keycloak client id tokens must be for |
+| `enabled` | boolean, default **false** | A disabled row authenticates nobody (the middleware filters on it) — drafts are free, disabling is the off-switch |
+
+Constraint: at most one **enabled** row per issuer across all companies
+(partial unique index, migration 0004) — `iss` must resolve to exactly one
+tenant. No secrets exist in the row.
+
+### SandboxTemplate (V2-4, D21)
+
+Per company per CODE language (unique on `companyId`+`language`): the image
+that runs that tenant's code-test answers.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `companyId` + `language` | FK + string, unique together | `language` ∈ BASH / NODE / PYTHON |
+| `name` / `description` | string / string? | Display |
+| `image` | string | Lowercase docker reference only (≤100 chars, grammar-enforced at zod, upsert AND build time) |
+| `enabled` | boolean, default true | Missing/disabled/unsafe → the platform default image (fail toward the safe image) |
+| `createdBy` | FK → User | Audit |
+
+Resolution (`lib/sandbox/templates.ts`): enabled template with a safe image →
+the template image; else the platform default (`bash:5.2`, `node:20-alpine`,
+`python:3.12-alpine`). The hardened docker argv is byte-identical either way.
 
 ### Job
 
@@ -106,17 +161,18 @@ Scorecard (unique per application+author): `technical/communication/problemSolvi
 ints 1–5, `strengths/concerns/summary?`,
 `recommendation` (`STRONG_HIRE/HIRE/NO_HIRE/STRONG_NO_HIRE`), optional `interviewId?`.
 
-## LLM providers (Phase 1)
+## LLM providers (Phase 1; company-scoped since V2-2/D20)
 
 ### LlmProvider
 
 | Field | Type | Purpose |
 |---|---|---|
+| `companyId` | FK, nullable | The owning tenant (migration 0003). Pre-V2.2 rows keep NULL — they are inert legacy: every read filters `companyId = <caller's company>`, which NULL never matches |
 | `kind` | `OPENAI_COMPATIBLE` \| `ANTHROPIC` \| `AZURE_OPENAI` | Adapter selection |
 | `baseUrl` | string | API root (Azure: resource URL; `textModel` is the *deployment* name) |
 | `apiKeyEncrypted` | string | AES-256-GCM secret box (`v1.<iv>.<authTag>.<ciphertext>`, base64url) — the raw key is never stored or returned (admin sees last-4 only) |
 | `textModel` / `visionModel` | string / string? | Model (or deployment) ids |
-| `isActive` | boolean | Exactly one active row: service transaction + partial unique index (migration-managed) |
+| `isActive` | boolean | Exactly one active row **per company**: service transaction + partial unique index (migration-managed, swapped in 0003) |
 
 `apiKeyEncrypted` is decrypted only in the provider loader (`getActiveAdapter`)
 and the admin last-4 redactor. See [docs/SELF_HOSTING.md](SELF_HOSTING.md).
@@ -280,16 +336,26 @@ always recorded in StageEvent.
 
 ## Migration-managed indexes
 
-Three unique indexes are **hand-written in migration `0001_init`** because the
-Prisma schema language cannot express them. Drift risk: `prisma db push` and
-future `migrate dev` diffs do not know about them — a database created without
-running migrations loses them.
+Partial unique indexes are **hand-written in migrations** because the Prisma
+schema language cannot express them. Drift risk: `prisma db push` and future
+`migrate dev` diffs do not know about them — a database created without
+running migrations loses them (the service-level pre-checks remain the
+functional guard).
 
-| Index | Definition | Closes |
-|---|---|---|
-| `companies_singleton_idx` | `ON companies ((true))` — at most one company row | QA wave-1 F2 |
-| `llm_providers_single_active_idx` | `ON llm_providers ((true)) WHERE "isActive"` — one active provider | QA wave-2 F3 |
-| `sealed_pools_single_active_idx` | `ON sealed_question_pools ("jobId") WHERE "isActive"` — one active pool **per job** | QA wave-4 schema note |
+| Index | Definition | Closes | History |
+|---|---|---|---|
+| `llm_providers_single_active_idx` | `ON llm_providers ("companyId") WHERE "isActive"` — one active provider **per company** | QA wave-2 F3 | 0001 created the global form `((true)) WHERE isActive`; **0003 swapped it to per-company** (without the swap, the second tenant to activate a provider would die on a unique violation; NULL companyIds stay distinct = legacy rows inert) |
+| `sealed_pools_single_active_idx` | `ON sealed_question_pools ("jobId") WHERE "isActive"` — one active pool **per job** | QA wave-4 schema note | 0001, unchanged |
+| `company_auth_configs_enabled_issuer_key` | `ON company_auth_configs ("issuerUrl") WHERE "enabled"` — one **enabled** config per issuer | V2-3: `iss` must resolve to exactly one tenant (409 `ISSUER_TAKEN` pre-check + this backstop for the race) | 0004 |
+| `companies_singleton_idx` | ~~`ON companies ((true))` — at most one company~~ | QA wave-1 F2 | **Dropped in 0002** — companies are tenants now (D18); the install lock is "a SUPER_ADMIN exists", enforced at service level |
+
+Migration chain: `0001_init` (v1 schema + 3 singleton indexes) →
+`0002_multitenancy` (SUPER_ADMIN enum value, `User.companyId` nullable,
+`platform_settings` + singleton seed, singleton index drop) →
+`0003_tenant_llm` (`LlmProvider.companyId` + the index swap) →
+`0004_company_auth` (`company_auth_configs` + enabled-issuer index) →
+`0005_sandbox_templates` (`sandbox_templates` + plain `@@unique`/`@@index`
+constraints — nothing hand-appended).
 
 Known non-FK: `VoidedItem.jobId` / `.voidedBy` are plain strings (no FK to
 jobs/users) — accepted v1; a real FK lands with a future migration if needed.
