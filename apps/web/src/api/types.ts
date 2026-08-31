@@ -502,9 +502,43 @@ export interface CreateUserInput {
  * Which credential verifier this install runs: `local` = email + password,
  * `oidc` = Keycloak SSO. Since V2-1 (D19) the mode is platform DATA — the
  * super admin switches it via PUT /api/platform/settings; the env setting is
- * the boot-time fallback.
+ * the boot-time fallback. Since V2-3 `perCompany` reports whether any company
+ * has an ENABLED Keycloak config (tenant SSO in play on top of the mode).
  */
 export type AuthMode = 'local' | 'oidc';
+
+/** GET /api/auth/mode response (public, boolean-only). */
+export interface AuthModeResponse {
+  mode: AuthMode;
+  perCompany: boolean;
+}
+
+// ─── Admin: company Keycloak/OIDC config (modules/admin, V2-3 D19) ────────────
+
+/** GET/PUT /api/admin/auth-config — the company's own Keycloak verifier. */
+export interface CompanyAuthConfig {
+  issuerUrl: string;
+  audience: string;
+  enabled: boolean;
+  /** ISO string over JSON. */
+  updatedAt: string;
+}
+
+/** PUT /api/admin/auth-config body (issuer must be a URL; slashes normalize server-side). */
+export interface PutAuthConfigInput {
+  issuerUrl: string;
+  audience: string;
+  enabled: boolean;
+}
+
+/** Row of GET /api/platform/auth-configs (SUPER_ADMIN only) — all companies, read-only. */
+export interface PlatformAuthConfigRow {
+  companyId: string;
+  companyName: string;
+  authConfig: CompanyAuthConfig | null;
+  /** Shape-only hint (http/https URL) — not a live discovery verdict. */
+  issuerShapeValid: boolean;
+}
 
 // ─── Platform console (modules/platform — SUPER_ADMIN only, D18) ──────────────
 

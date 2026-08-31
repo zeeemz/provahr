@@ -138,6 +138,7 @@ model Company {
   users        User[]
   jobs         Job[]
   llmProviders LlmProvider[]
+  authConfig   CompanyAuthConfig?
 
   @@map("companies")
 }
@@ -322,6 +323,38 @@ model PlatformSettings {
   updatedAt DateTime @updatedAt
 
   @@map("platform_settings")
+}
+
+// ─── Per-company OIDC auth config (PLAN.md Phase V2-3, decision D19) ─────────
+
+/// Per-company Keycloak/OIDC verifier (D19): the issuer + audience the auth
+/// middleware resolves the token's `iss` claim against (see
+/// src/middleware/auth.ts). One row per company (`companyId` unique — a PUT
+/// upserts it), `enabled = false` by default: a disabled row authenticates
+/// nobody, so saving a draft config is always side-effect free. Deleting the
+/// company cascades the config away with it.
+///
+/// `issuerUrl` is stored WITH trailing slashes stripped (same normalization as
+/// env.OIDC_ISSUER_URL and Keycloak's own `iss` claim — jwt.verify compares raw
+/// strings). One ENABLED config per issuer at a time is a resolution invariant
+/// (the middleware's findFirst would otherwise be ambiguous between two
+/// companies): enforced by the service-level pre-check and, since migration
+/// 0004_company_auth, by a migration-managed partial unique index
+///   CREATE UNIQUE INDEX "company_auth_configs_enabled_issuer_key"
+///     ON "company_auth_configs" ("issuerUrl") WHERE "enabled";
+/// (Same drift-risk caveat as the LlmProvider/SealedQuestionPool indexes: not
+/// expressible in Prisma schema language; `db push` databases never get it.)
+model CompanyAuthConfig {
+  id        String   @id @default(cuid())
+  companyId String   @unique
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  issuerUrl String
+  audience  String
+  enabled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("company_auth_configs")
 }
 
 // ─── LLM providers (PLAN.md Phase 1, decision D9) ────────────────────────────

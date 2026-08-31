@@ -1,30 +1,34 @@
 // Admin: authentication settings (/app/admin/settings).
 //
-// GET /api/auth/mode is a public, boolean-only readout (D15): which credential
-// verifier this install runs. Since V2-1 (D19) the mode is platform DATA with
-// an env fallback — this page explains it for company admins; the SWITCH
-// itself lives in the super-admin Platform console (Platform → Settings),
-// because auth mode is an install-wide concern, not a company one. Details:
-// docs/RBAC.md (docs sweep lands with V2-5).
+// Two surfaces since V2-3 (D19):
+// 1. The live mode badge — GET /api/auth/mode, public and boolean-only. The
+//    MODE itself is the super-admin platform toggle (Platform → Settings),
+//    because it is an install-wide concern; company admins read it here.
+// 2. The company's OWN Keycloak/OIDC config — GET/PUT /api/admin/auth-config
+//    (issuer URL + audience + enabled). This is real, runtime data now: in
+//    SSO mode the middleware verifies tokens against the issuer configured
+//    HERE for this company. Validation is client-side URL-shape only (no test
+//    round-trip endpoint by design) — the full walkthrough, including realm
+//    and client-role setup, lives in docs/RBAC.md.
 
 import { useEffect, useState } from 'react';
-import { api } from '../api/client';
-import type { AuthMode } from '../api/types';
-import { ApiErrorScreen, Spinner } from '../components/ui';
+import { api, ApiError, errMessage } from '../api/client';
+import type { AuthModeResponse, CompanyAuthConfig } from '../api/types';
+import { ApiErrorScreen, ErrorBox, Spinner } from '../components/ui';
 
 export default function SettingsPage(): JSX.Element {
-  const [mode, setMode] = useState<AuthMode | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const [modeInfo, setModeInfo] = useState<AuthModeResponse | null>(null);
+  const [modeError, setModeError] = useState<unknown>(null);
 
   useEffect(() => {
     let cancelled = false;
     api
-      .get<{ mode: AuthMode }>('/auth/mode')
+      .get<AuthModeResponse>('/auth/mode')
       .then((res) => {
-        if (!cancelled) setMode(res.mode);
+        if (!cancelled) setModeInfo(res);
       })
       .catch((err) => {
-        if (!cancelled) setError(err);
+        if (!cancelled) setModeError(err);
       });
     return () => {
       cancelled = true;
@@ -34,79 +38,203 @@ export default function SettingsPage(): JSX.Element {
   return (
     <main className="page narrow">
       <h1>Authentication</h1>
-      <p className="sub">How sign-in is verified on this install — and how to change it.</p>
+      <p className="sub">How sign-in is verified on this install — and your company&rsquo;s Keycloak realm.</p>
 
-      {error !== null && <ApiErrorScreen err={error} />}
-      {error === null && mode === null && <Spinner label="Checking auth mode…" />}
+      {modeError !== null && <ApiErrorScreen err={modeError} />}
+      {modeError === null && modeInfo === null && <Spinner label="Checking auth mode…" />}
 
-      {mode === 'local' && (
-        <>
-          <div className="card">
-            <h2><span className="badge green">Current</span> Local accounts (email + password)</h2>
-            <p className="sub mt0">
-              Sign-in verifies email + password against this install&rsquo;s database and issues a
-              JWT signed with <code>JWT_SECRET</code>. This is the development default — no network
-              I/O, no identity provider to run.
-            </p>
+      {modeInfo !== null && (
+        <div className="card">
+          <h2>
+            <span className={`badge ${modeInfo.mode === 'oidc' ? 'green' : 'outline'}`}>
+              {modeInfo.mode === 'oidc' ? 'SSO' : 'Local'}
+            </span>{' '}
+            Platform sign-in mode
+          </h2>
+          <p className="sub mt0">
+            {modeInfo.mode === 'local'
+              ? 'This install verifies email + password sign-ins against its own database (the development default).'
+              : 'This install verifies Keycloak SSO tokens. Company users sign in through their realm; the platform super admin always keeps local sign-in as the lockout safety.'}
+          </p>
+          {modeInfo.mode === 'oidc' && modeInfo.perCompany && (
             <p className="hint">
-              Users you invite on the Team page get local accounts with the password you set — that
-              is the only way accounts are created in this mode (plus the first-run /setup wizard).
+              At least one company — possibly yours — has an enabled Keycloak config: tenant realms are
+              in play, resolved per token issuer.
             </p>
-          </div>
-          <div className="card">
-            <h2>Single sign-on (Keycloak, OIDC)</h2>
-            <p className="sub mt0">
-              Corporate sign-in via your org&rsquo;s Keycloak realm: RS256 access tokens verified
-              against the issuer&rsquo;s JWKS, roles mapped per request (ADMIN &gt; RECRUITER &gt;
-              INTERVIEWER), users provisioned automatically. Azure AD / SAML / LDAP / Google
-              federate through Keycloak — ProvaHR itself never sees those credentials.
-            </p>
-            <p className="hint">
-              To switch: the platform super admin flips it in the Platform console (Platform →
-              Settings) — a runtime setting now, no restart. Keycloak verification for the switch
-              lands with V2-3. Full walkthrough: <code>docs/RBAC.md</code>.
-            </p>
-          </div>
-        </>
+          )}
+          <p className="hint">
+            The switch between local and SSO is install-wide: the platform super admin flips it in the
+            Platform console (Platform → Settings) — a runtime setting, no restart. This page reports
+            it live.
+          </p>
+        </div>
       )}
 
-      {mode === 'oidc' && (
-        <>
-          <div className="card">
-            <h2><span className="badge green">Current</span> Keycloak SSO (OIDC)</h2>
-            <p className="sub mt0">
-              Sign-in is verified by your org&rsquo;s Keycloak realm. ProvaHR checks RS256 access
-              tokens against the issuer&rsquo;s JWKS (issuer + audience enforced), maps realm roles
-              to ADMIN / RECRUITER / INTERVIEWER on every request, and provisions the local user row
-              from the verified token. Removing a user&rsquo;s roles in Keycloak locks them out on
-              their next request.
-            </p>
-            <p className="hint">
-              Keycloak admin console: typically <code>http://localhost:8081</code> (this install&rsquo;s
-              issuer default is <code>http://localhost:8081/realms/provahr</code>) — select the
-              provahr realm to manage users and roles.
-            </p>
-            <p className="hint">
-              Federate Azure AD / SAML / LDAP in Keycloak — see <code>docs/RBAC.md</code>. ProvaHR
-              only ever talks to Keycloak, so adding or swapping providers needs no ProvaHR changes.
-            </p>
-          </div>
-          <div className="card">
-            <h2>Switching back to local accounts</h2>
-            <p className="sub mt0">
-              Also a Platform-console switch. Users provisioned from OIDC have no usable local
-              password (a random unknown hash), so they would need a password reset or a fresh
-              invite.
-            </p>
-          </div>
-        </>
-      )}
-
-      <p className="hint">
-        The mode is an install-wide platform setting (D19) — company admins read it here; the
-        super admin switches it in the Platform console. Details and security notes:{' '}
-        <code>docs/RBAC.md</code>.
-      </p>
+      <KeycloakConfigCard mode={modeInfo?.mode ?? null} />
     </main>
+  );
+}
+
+/** True when the issuer looks like a reachable http(s) URL — shape only, no network probe. */
+function issuerShapeValid(issuerUrl: string): boolean {
+  try {
+    const parsed = new URL(issuerUrl.trim());
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The company's Keycloak/OIDC verifier (V2-3). One config per company — PUT
+ * replaces it. `enabled` gates whether the middleware will resolve tokens
+ * from this issuer to THIS company; a disabled row is a harmless draft.
+ */
+function KeycloakConfigCard({ mode }: { mode: 'local' | 'oidc' | null }): JSX.Element {
+  // undefined = loading, null = never saved.
+  const [initial, setInitial] = useState<CompanyAuthConfig | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [issuerUrl, setIssuerUrl] = useState('');
+  const [audience, setAudience] = useState('');
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ authConfig: CompanyAuthConfig | null }>('/admin/auth-config')
+      .then((res) => {
+        if (cancelled) return;
+        setInitial(res.authConfig);
+        setIssuerUrl(res.authConfig?.issuerUrl ?? '');
+        setAudience(res.authConfig?.audience ?? '');
+        setEnabled(res.authConfig?.enabled ?? false);
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function submit(e: React.FormEvent): Promise<void> {
+    e.preventDefault();
+    setSaved(null);
+    if (!issuerShapeValid(issuerUrl)) {
+      setError('Issuer URL must be a full http:// or https:// URL (e.g. https://sso.example.com/realms/acme).');
+      return;
+    }
+    if (audience.trim() === '') {
+      setError('Audience is required — the Keycloak client id whose tokens ProvaHR accepts.');
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await api.put<{ authConfig: CompanyAuthConfig }>('/admin/auth-config', {
+        issuerUrl: issuerUrl.trim(),
+        audience: audience.trim(),
+        enabled,
+      });
+      setInitial(res.authConfig);
+      setIssuerUrl(res.authConfig.issuerUrl);
+      setAudience(res.authConfig.audience);
+      setEnabled(res.authConfig.enabled);
+      setSaved(
+        res.authConfig.enabled
+          ? 'Saved and enabled — tokens from this issuer now verify against your company (SSO mode permitting).'
+          : 'Saved as a disabled draft — flip the toggle when the realm is ready.',
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'ISSUER_TAKEN') {
+        setError('Another company on this install already verifies that issuer — issuers must be unique per company.');
+      } else {
+        setError(errMessage(err));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loadError !== null) return <ApiErrorScreen err={loadError} />;
+  if (initial === undefined) return <Spinner label="Loading Keycloak config…" />;
+
+  return (
+    <div className="card">
+      <h2>
+        <span className={`badge ${enabled ? 'green' : 'outline'}`}>{enabled ? 'Enabled' : 'Draft'}</span>{' '}
+        Your company&rsquo;s Keycloak (OIDC)
+      </h2>
+      <p className="sub mt0">
+        In SSO mode, sign-in tokens carrying your issuer URL are verified against the issuer +
+        audience you configure here, and the user joins <strong>your</strong> company. Roles map from
+        realm/client roles: ADMIN &gt; RECRUITER &gt; INTERVIEWER (docs/RBAC.md has the realm setup
+        walkthrough).
+      </p>
+
+      <form onSubmit={(e) => void submit(e)}>
+        <label className="field" htmlFor="kc-issuer">Issuer URL</label>
+        <input
+          id="kc-issuer"
+          type="url"
+          required
+          maxLength={500}
+          placeholder="https://sso.example.com/realms/acme"
+          value={issuerUrl}
+          onChange={(e) => setIssuerUrl(e.target.value)}
+        />
+        <p className="hint">
+          The realm&rsquo;s issuer identifier — Keycloak reports it as the token&rsquo;s <code>iss</code>{' '}
+          claim. No trailing slash needed; the API normalizes it.
+        </p>
+
+        <label className="field" htmlFor="kc-audience">Audience (client ID)</label>
+        <input
+          id="kc-audience"
+          type="text"
+          required
+          minLength={1}
+          maxLength={200}
+          placeholder="provahr-api"
+          value={audience}
+          onChange={(e) => setAudience(e.target.value)}
+        />
+        <p className="hint">The Keycloak client ProvaHR accepts tokens for — <code>azp</code>/audience is enforced.</p>
+
+        <label className="field" htmlFor="kc-enabled" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            id="kc-enabled"
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+          />
+          Enabled — tokens from this issuer verify for this company
+        </label>
+        <p className="hint">
+          A disabled config authenticates nobody, so it is safe to save a draft first. Enabling an
+          issuer another company already uses is refused.
+          {mode === 'local' && ' Note: the platform is currently in LOCAL mode — this config takes effect when the super admin switches the install to SSO.'}
+        </p>
+
+        {error !== null && <ErrorBox err={error} />}
+        {saved !== null && <p className="form-ok">{saved}</p>}
+        <p style={{ marginTop: 16 }}>
+          <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save config'}</button>
+        </p>
+      </form>
+
+      {initial !== null && (
+        <p className="hint">Last saved {new Date(initial.updatedAt).toLocaleString()}.</p>
+      )}
+      <p className="hint">
+        No live “test” button by design — verification happens on real sign-in. Validate the issuer
+        URL shape here, then check <code>docs/RBAC.md</code> for the realm, client and role-mapping
+        walkthrough; the platform console (Platform → Auth configs) shows every company&rsquo;s
+        config and a validity hint.
+      </p>
+    </div>
   );
 }

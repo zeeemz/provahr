@@ -5,6 +5,7 @@ import { requireSuperAdmin } from './platform.middleware';
 import { listCompanies, createCompany, patchCompany, deleteCompany } from './companies.service';
 import { getPlatformSettings, putPlatformSettings } from './settings.service';
 import { createCompanySchema, patchCompanySchema, putPlatformSettingsSchema } from './platform.schema';
+import { listPlatformAuthConfigs } from '../admin/auth-config.service';
 
 // Platform console API (PLAN.md §12 D18/D19) — mounted at /api/platform.
 // Every route is requireAuth + requireSuperAdmin: the platform super admin
@@ -71,5 +72,10 @@ router.put(
     res.json(settings);
   }),
 );
+
+/** Every company's Keycloak/OIDC config, read-only, with a validity hint (V2-3, D19). */
+router.get('/auth-configs', requireAuth, requireSuperAdmin, asyncHandler(async (_req, res) => {
+  res.json({ configs: await listPlatformAuthConfigs() });
+}));
 
 export default router;

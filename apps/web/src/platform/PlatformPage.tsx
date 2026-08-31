@@ -3,13 +3,13 @@
 // The SaaS control surface (PLAN.md §12 D18/D19): tenants (companies) with
 // their user counts, the "New company" wizard-modal (company + optional first
 // ADMIN in one POST), and the platform Settings card with the auth-mode
-// SWITCH — a real toggle now: PUT /api/platform/settings writes the runtime
-// setting that GET /api/auth/mode reads back.
+// SWITCH — a real toggle since V2-1: PUT /api/platform/settings writes the
+// runtime setting that GET /api/auth/mode reads back.
 //
-// Honest V2-1 caveat surfaced in the UI: Keycloak VERIFICATION wiring lands
-// with V2-3 — until then the boot-time environment decides which verifier
-// actually runs, so switching modes changes the readout now and enforcement
-// later.
+// Since V2-3 the switch is fully LIVE: the auth middleware resolves the mode
+// from the platform row on every request, and each company's Keycloak realm
+// is configured inside the tenant (Company admin → Settings → Keycloak). The
+// platform owner keeps local sign-in in SSO mode by design — lockout safety.
 
 import { useEffect, useState } from 'react';
 import { api, ApiError, errMessage } from '../api/client';
@@ -198,9 +198,11 @@ function AuthModeCard({
       </p>
       {error !== null && <p className="form-error">{error}</p>}
       <p className="hint">
-        The switch is stored as platform data and read back by the sign-in screens immediately.
-        Keycloak verification becomes ACTIVE with V2-3 — until then the boot-time environment
-        setting keeps deciding which verifier runs, so plan the cutover there.
+        The switch is stored as platform data and takes effect on the next request — the middleware
+        reads it per sign-in, no restart. Each company brings its own Keycloak realm (company admin →
+        Settings); this install-wide mode decides whether those realms or local passwords verify.
+        YOUR super-admin password keeps working in both modes, so a bad realm config can never lock
+        you out of this console.
       </p>
       {authMode === 'oidc' && (
         <p className="hint">

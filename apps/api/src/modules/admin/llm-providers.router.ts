@@ -10,6 +10,7 @@ import {
   deleteProvider,
   smokeTest,
 } from './llm-providers.service';
+import authConfigRouter from './auth-config.router';
 
 const router = Router();
 
@@ -48,5 +49,10 @@ router.delete('/llm-providers/:id', requireAuth, requireRole('ADMIN'), asyncHand
   await deleteProvider(req.user!.companyId!, req.params.id);
   res.status(204).send();
 }));
+
+// V2-3 (D19): the company's Keycloak/OIDC config rides the same /api/admin
+// mount (GET/PUT /api/admin/auth-config) — nested here so app.ts keeps a
+// single admin router.
+router.use(authConfigRouter);
 
 export default router;

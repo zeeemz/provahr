@@ -84,6 +84,10 @@ describe('GET /api/auth/mode', () => {
     const res = await request(app).get('/api/auth/mode');
     expect(res.status).toBe(200);
     expect(['local', 'oidc']).toContain(res.body.mode);
-    expect(Object.keys(res.body)).toEqual(['mode']);
+    // V2-3 (D19): perCompany reports whether any company has an enabled
+    // Keycloak config. No database in unit tests → the count read fails open
+    // to false; only the key set is asserted here.
+    expect(Object.keys(res.body).sort()).toEqual(['mode', 'perCompany']);
+    expect(typeof res.body.perCompany).toBe('boolean');
   });
 });

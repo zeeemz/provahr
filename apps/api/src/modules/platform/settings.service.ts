@@ -15,9 +15,28 @@ function normalizeAuthMode(value: string | null | undefined): AuthMode | null {
   return value === 'local' || value === 'oidc' ? value : null;
 }
 
-/** Boot-time fallback (D19: env vars remain the fallback when no data exists). */
+/**
+ * Boot-time fallback (D19: env vars remain the fallback when no data exists).
+ */
 function envAuthMode(): AuthMode {
   return env.OIDC_ENABLED ? 'oidc' : 'local';
+}
+
+/**
+ * How long a successful read of PlatformSettings.authMode is trusted
+ * in-memory (V2-3). The middleware resolves the mode per request now, so an
+ * uncached read would put a settings query on every authenticated call; 10s
+ * is the deliberate ceiling on how stale a mode switch can be (PUT refreshes
+ * the cache immediately, so switches made through the portal apply at once —
+ * only out-of-band database edits pay the 10s).
+ */
+export const AUTH_MODE_CACHE_MS = 10_000;
+
+let cachedAuthMode: { value: AuthMode; at: number } | null = null;
+
+/** Test seam: drops the in-memory mode cache so the next read hits the database mock. */
+export function resetAuthModeCacheForTests(): void {
+  cachedAuthMode = null;
 }
 
 /**
@@ -29,14 +48,24 @@ function envAuthMode(): AuthMode {
  * unreadable database (or a `db push` database with no seed) must degrade to
  * the boot-time mode, never 500. The WRITE path (putPlatformSettings)
  * propagates errors normally.
+ *
+ * Since V2-3 this is the value the auth MIDDLEWARE branches on per request
+ * (src/middleware/auth.ts) — hence the 10s cache above. Error reads are not
+ * cached: a transient database blip must not pin the fallback mode, and each
+ * retry costs one indexed primary-key lookup.
  */
 export async function getAuthMode(): Promise<AuthMode> {
+  if (cachedAuthMode && Date.now() - cachedAuthMode.at < AUTH_MODE_CACHE_MS) {
+    return cachedAuthMode.value;
+  }
   try {
     const row: SettingsRow | null = await prisma.platformSettings.findUnique({
       where: { id: 'singleton' },
       select: { authMode: true },
     });
-    return normalizeAuthMode(row?.authMode) ?? envAuthMode();
+    const value = normalizeAuthMode(row?.authMode) ?? envAuthMode();
+    cachedAuthMode = { value, at: Date.now() };
+    return value;
   } catch {
     return envAuthMode();
   }
@@ -52,9 +81,10 @@ export async function getPlatformSettings(): Promise<PlatformSettingsView> {
  * created via `db push` (no migration seed) materialize the singleton row on
  * first write. Validation lives in the zod schema ('local' | 'oidc').
  *
- * V2-1 honesty note: switching feeds /api/auth/mode and the portal display;
- * the OIDC middleware still branches on OIDC_ENABLED until V2-3 wires
- * verification to this row.
+ * V2-3: the switch is fully live — the auth middleware resolves the mode from
+ * this row per request (with the 10s cache), so this write refreshes the
+ * cache immediately: a flip made in the portal changes which verifier runs
+ * on the very next request, no restart.
  */
 export async function putPlatformSettings(input: PutPlatformSettingsInput): Promise<PlatformSettingsView> {
   const row = await prisma.platformSettings.upsert({
@@ -63,5 +93,7 @@ export async function putPlatformSettings(input: PutPlatformSettingsInput): Prom
     update: { authMode: input.authMode },
     select: { authMode: true },
   });
-  return { authMode: normalizeAuthMode(row.authMode) ?? input.authMode };
+  const authMode = normalizeAuthMode(row.authMode) ?? input.authMode;
+  cachedAuthMode = { value: authMode, at: Date.now() };
+  return { authMode };
 }
