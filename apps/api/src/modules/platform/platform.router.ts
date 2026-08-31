@@ -6,6 +6,7 @@ import { listCompanies, createCompany, patchCompany, deleteCompany } from './com
 import { getPlatformSettings, putPlatformSettings } from './settings.service';
 import { createCompanySchema, patchCompanySchema, putPlatformSettingsSchema } from './platform.schema';
 import { listPlatformAuthConfigs } from '../admin/auth-config.service';
+import { listPlatformSandboxTemplates } from '../admin/sandbox-templates.service';
 
 // Platform console API (PLAN.md §12 D18/D19) — mounted at /api/platform.
 // Every route is requireAuth + requireSuperAdmin: the platform super admin
@@ -76,6 +77,11 @@ router.put(
 /** Every company's Keycloak/OIDC config, read-only, with a validity hint (V2-3, D19). */
 router.get('/auth-configs', requireAuth, requireSuperAdmin, asyncHandler(async (_req, res) => {
   res.json({ configs: await listPlatformAuthConfigs() });
+}));
+
+/** Every company's sandbox image templates, read-only, with resolution info (V2-4, D21). */
+router.get('/sandbox-templates', requireAuth, requireSuperAdmin, asyncHandler(async (_req, res) => {
+  res.json({ companies: await listPlatformSandboxTemplates() });
 }));
 
 export default router;

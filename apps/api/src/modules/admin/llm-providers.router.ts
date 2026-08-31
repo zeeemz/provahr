@@ -11,6 +11,7 @@ import {
   smokeTest,
 } from './llm-providers.service';
 import authConfigRouter from './auth-config.router';
+import sandboxTemplatesRouter from './sandbox-templates.router';
 
 const router = Router();
 
@@ -54,5 +55,9 @@ router.delete('/llm-providers/:id', requireAuth, requireRole('ADMIN'), asyncHand
 // mount (GET/PUT /api/admin/auth-config) — nested here so app.ts keeps a
 // single admin router.
 router.use(authConfigRouter);
+
+// V2-4 (D21): the company's sandbox image templates ride the same mount
+// (GET/PUT /api/admin/sandbox-templates), same nesting rationale.
+router.use(sandboxTemplatesRouter);
 
 export default router;

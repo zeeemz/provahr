@@ -21,9 +21,15 @@
 // the docker CLI client; the container itself is terminated by dockerd's
 // --stop-timeout backstop and reaped by --rm. Phase 10 must verify containers
 // actually die on runaway code (docs/TESTING.md T4 "limits kill runaway code").
+//
+// V2-4 (PLAN §12 D21): the constructor accepts per-language image overrides
+// (the caller's RESOLVED company templates — ImageOverrides). Every build and
+// every assert uses the same resolution context, so a template image lands in
+// the argv exactly where the platform default would, under byte-identical
+// hardening flags.
 
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { CODE_LANGUAGES } from '../assessment/item';
+import { CODE_LANGUAGES, type CodeLanguage } from '../assessment/item';
 import { AppError } from '../http';
 import { assertHardenedArgs, buildRunArgs, stdinPayload } from './builder';
 import { compareCase, stdinUnsupportedOutcome, summarize } from './judge';
@@ -35,6 +41,15 @@ import {
   type SandboxRequest,
   type SandboxResponse,
 } from './types';
+
+/**
+ * V2-4 (D21): per-language image overrides for ONE evaluation run — the
+ * company's resolved sandbox templates (evaluation.service builds this from
+ * resolveImage output). Languages absent from the map resolve to the platform
+ * default; present entries are validated by buildRunArgs (unsafe →
+ * SANDBOX_TEMPLATE_UNSAFE) before anything is spawned.
+ */
+export type ImageOverrides = Partial<Record<CodeLanguage, string>>;
 
 /** One `docker run` outcome (per case) before judging. */
 interface SingleRun {
@@ -68,13 +83,24 @@ class CappedBuffer {
 }
 
 export class DockerExecutor implements SandboxExecutor {
-  constructor(private readonly timeoutMs: number = PER_CASE_TIMEOUT_MS) {
+  constructor(
+    private readonly timeoutMs: number = PER_CASE_TIMEOUT_MS,
+    private readonly images: ImageOverrides = {},
+  ) {
     // Boot-time fail-fast: prove the argv this class would build for EVERY
     // language satisfies the hardening invariants, ONCE — a regression in
     // builder.ts kills the process at startup instead of at candidate expense.
+    // (Default images only: template images arrive per run and are validated
+    // below on every build — unsafe ones throw before any spawn.)
     for (const language of CODE_LANGUAGES) {
       assertHardenedArgs(buildRunArgs({ language }, { timeoutMs }));
     }
+  }
+
+  /** The image override for `language` under this run's templates, if any. */
+  private imageFor(language: CodeLanguage): string | undefined {
+    // hasOwnProperty guard (QA wave-7 F5): '__proto__' must not resolve.
+    return Object.prototype.hasOwnProperty.call(this.images, language) ? this.images[language] : undefined;
   }
 
   async execute(req: SandboxRequest): Promise<SandboxResponse> {
@@ -85,10 +111,17 @@ export class DockerExecutor implements SandboxExecutor {
     let truncated = false;
     let exitCode: number | null = null;
 
+    // One resolution context for build + assert: THE SAME image (when the
+    // company template overrides it) and timeout go into both, so the
+    // exact-prefix checker verifies precisely the argv that was built.
+    const image = this.imageFor(req.language);
+    const opts: { timeoutMs: number; image?: string } = { timeoutMs: this.timeoutMs };
+    if (image !== undefined) opts.image = image;
+
     for (const testCase of req.cases) {
       let args: string[];
       try {
-        args = buildRunArgs({ language: req.language, case: testCase }, { timeoutMs: this.timeoutMs });
+        args = buildRunArgs({ language: req.language, case: testCase }, opts);
       } catch (err) {
         if (err instanceof AppError && err.code === 'SANDBOX_V1_NO_STDIN') {
           // v1 limitation: fail the case with an explanatory note, keep running
@@ -96,11 +129,12 @@ export class DockerExecutor implements SandboxExecutor {
           outcomes.push(stdinUnsupportedOutcome(testCase));
           continue;
         }
-        throw err;
+        throw err; // incl. SANDBOX_TEMPLATE_UNSAFE — fail closed, queue retries
       }
       // Defense in depth: even though buildRunArgs just produced this argv,
-      // the invariant checker runs again before anything is spawned.
-      assertHardenedArgs(args);
+      // the invariant checker runs again before anything is spawned —
+      // parameterized over the same resolved image (V2-4).
+      assertHardenedArgs(args, opts);
 
       const run = await this.runOne(args, stdinPayload(req, testCase));
       outcomes.push(compareCase(testCase, { stdout: run.stdout, exitCode: run.exitCode, timedOut: run.timedOut }));

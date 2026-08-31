@@ -13,12 +13,19 @@
 
 import { useEffect, useState } from 'react';
 import { api, ApiError, errMessage } from '../api/client';
-import type { AuthMode, CreateCompanyInput, PlatformCompany, PlatformSettings } from '../api/types';
+import type {
+  AuthMode,
+  CreateCompanyInput,
+  PlatformCompany,
+  PlatformSandboxTemplateRow,
+  PlatformSettings,
+} from '../api/types';
 import { ApiErrorScreen, ErrorBox, Spinner, fmtDate } from '../components/ui';
 
 export default function PlatformPage(): JSX.Element {
   const [companies, setCompanies] = useState<PlatformCompany[] | null>(null);
   const [settings, setSettings] = useState<PlatformSettings | null>(null);
+  const [sandboxTemplates, setSandboxTemplates] = useState<PlatformSandboxTemplateRow[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [showWizard, setShowWizard] = useState(false);
@@ -29,11 +36,13 @@ export default function PlatformPage(): JSX.Element {
     Promise.all([
       api.get<{ companies: PlatformCompany[] }>('/platform/companies'),
       api.get<PlatformSettings>('/platform/settings'),
+      api.get<{ companies: PlatformSandboxTemplateRow[] }>('/platform/sandbox-templates'),
     ])
-      .then(([cos, se]) => {
+      .then(([cos, se, tpl]) => {
         if (!cancelled) {
           setCompanies(cos.companies);
           setSettings(se);
+          setSandboxTemplates(tpl.companies);
           setError(null);
         }
       })
@@ -74,6 +83,8 @@ export default function PlatformPage(): JSX.Element {
 
       {error !== null && <ApiErrorScreen err={error} />}
       {error === null && (companies === null || settings === null) && <Spinner label="Loading platform…" />}
+
+      {sandboxTemplates !== null && <SandboxTemplatesCard rows={sandboxTemplates} />}
 
       {note !== null && <p className="form-ok">{note}</p>}
 
@@ -150,6 +161,60 @@ export default function PlatformPage(): JSX.Element {
         />
       )}
     </main>
+  );
+}
+
+/** Sandbox templates across every tenant (V2-4, D21) — read-only oversight. */
+function SandboxTemplatesCard({ rows }: { rows: PlatformSandboxTemplateRow[] }): JSX.Element {
+  return (
+    <div className="card" style={{ padding: 0 }}>
+      <div style={{ padding: '14px 16px 0' }}>
+        <h2 className="mt0" style={{ margin: 0 }}>Sandbox templates</h2>
+        <p className="sub mt0">
+          Which docker image each tenant&rsquo;s code answers run, per language — read-only
+          oversight; templates are configured inside each company (Admin → Settings). Companies
+          without templates run the platform defaults.
+        </p>
+      </div>
+      <table className="list">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Language</th>
+            <th>Template image</th>
+            <th>Active image</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={5} className="muted">No companies yet.</td>
+            </tr>
+          )}
+          {rows.flatMap((company) =>
+            company.languages.map((l, i) => (
+              <tr key={`${company.companyId}-${l.language}`}>
+                <td>{i === 0 ? <strong>{company.companyName}</strong> : <span className="muted">{company.companyName}</span>}</td>
+                <td>{l.language}</td>
+                <td className={l.template === null ? 'muted' : undefined}>
+                  {l.template === null ? '—' : l.template.image}
+                  {l.template !== null && !l.template.enabled && <span className="muted"> (disabled)</span>}
+                </td>
+                <td>
+                  <code>{l.activeImage}</code>
+                </td>
+                <td>
+                  <span className={`badge ${l.activeSource === 'COMPANY' ? 'green' : 'outline'}`}>
+                    {l.activeSource === 'COMPANY' ? 'Company' : 'Platform'}
+                  </span>
+                </td>
+              </tr>
+            )),
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

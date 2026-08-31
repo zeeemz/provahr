@@ -540,6 +540,53 @@ export interface PlatformAuthConfigRow {
   issuerShapeValid: boolean;
 }
 
+// ─── Admin: sandbox image templates (modules/admin, V2-4 D21) ────────────────
+
+/** The languages CODE questions can run (mirrors apps/api CODE_LANGUAGES). */
+export type CodeLanguage = 'BASH' | 'NODE' | 'PYTHON';
+
+export const CODE_LANGUAGES: readonly CodeLanguage[] = ['BASH', 'NODE', 'PYTHON'];
+
+/** The company's stored template for one language (null when never saved). */
+export interface SandboxTemplateView {
+  id: string;
+  name: string;
+  description: string | null;
+  language: CodeLanguage;
+  image: string;
+  enabled: boolean;
+  /** ISO string over JSON. */
+  updatedAt: string;
+}
+
+/** Row of GET /api/admin/sandbox-templates — one per language, stored or not. */
+export interface SandboxTemplateLanguageRow {
+  language: CodeLanguage;
+  /** The platform default image (what runs without a template). */
+  defaultImage: string;
+  /** What a CODE answer of this language actually runs today. */
+  activeImage: string;
+  activeSource: 'COMPANY' | 'PLATFORM';
+  template: SandboxTemplateView | null;
+}
+
+/** PUT /api/admin/sandbox-templates body (upserts the caller's company row). */
+export interface PutSandboxTemplateInput {
+  language: CodeLanguage;
+  name: string;
+  description?: string;
+  image: string;
+  enabled: boolean;
+}
+
+/** Row of GET /api/platform/sandbox-templates (SUPER_ADMIN only) — read-only. */
+export interface PlatformSandboxTemplateRow {
+  companyId: string;
+  companyName: string;
+  languages: SandboxTemplateLanguageRow[];
+  anyOverride: boolean;
+}
+
 // ─── Platform console (modules/platform — SUPER_ADMIN only, D18) ──────────────
 
 /** Row of GET /api/platform/companies — tenants with their user counts. */

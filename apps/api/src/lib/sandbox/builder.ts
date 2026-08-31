@@ -10,25 +10,19 @@
 // Hardening model (PLAN §10): no network, non-root uid, read-only rootfs with
 // a small exec tmpfs, pids/memory/CPU limits, --rm immediate destruction, no
 // host mounts EVER (the candidate's program travels via STDIN, never a
-// volume), and an image allow-list per language. Everything is one argv array
+// volume), and a per-language image that resolves COMPANY TEMPLATE → platform
+// default (V2-4, D21 — templates.ts). Everything is one argv array
 // passed to child_process.spawn — a shell string is never built, so no quoting
 // or injection surface exists.
 
 import type { CodeLanguage } from '../assessment/item';
 import { AppError } from '../http';
 import { PER_CASE_TIMEOUT_MS, type SandboxCase, type SandboxRequest } from './types';
+import { IMAGE_ALLOW_LIST, isSafeImageRef } from './templates';
 
-/**
- * The only images the sandbox may ever run (PLAN §10 image allow-list).
- * E2E FINDING (2026-08-29): `bash:5.2-alpine` does not exist on Docker Hub —
- * the official bash image publishes `5.2`, not `5.2-alpine`. Tags verified by
- * live `docker pull`.
- */
-export const IMAGE_ALLOW_LIST: Record<CodeLanguage, string> = {
-  BASH: 'bash:5.2',
-  NODE: 'node:20-alpine',
-  PYTHON: 'python:3.12-alpine',
-};
+// Re-exported for the historical import site (index.ts, tests): the default
+// table lives in templates.ts since V2-4 — resolution layer owns the data.
+export { IMAGE_ALLOW_LIST };
 
 /**
  * Interpreter command prefix per language: reads the PROGRAM from stdin
@@ -63,12 +57,20 @@ export function stopTimeoutSeconds(timeoutMs: number): number {
  * v1 cannot carry both a program and case-input on the same stdin pipe
  * (documented v1 limitation, types.ts header).
  *
- * Throws AppError(400, 'SANDBOX_V1_NO_STDIN') for stdin cases and
- * AppError(400, 'SANDBOX_LANGUAGE_UNSUPPORTED') for a language with no image.
+ * V2-4 (PLAN §12 D21): `opts.image` carries the ALREADY-RESOLVED company
+ * template image (resolveImage, templates.ts). The flag region is IDENTICAL
+ * for default and template images — an override changes WHICH container runs,
+ * never HOW it runs. An unsafe `opts.image` (isSafeImageRef) throws
+ * AppError(500, 'SANDBOX_TEMPLATE_UNSAFE'): a stored ref that somehow slipped
+ * past the SAVE-time zod check is refused here, at build time, fail-closed.
+ *
+ * Throws AppError(400, 'SANDBOX_V1_NO_STDIN') for stdin cases,
+ * AppError(400, 'SANDBOX_LANGUAGE_UNSUPPORTED') for a language with no image,
+ * and AppError(500, 'SANDBOX_TEMPLATE_UNSAFE') for an unsafe image override.
  */
 export function buildRunArgs(
   req: { language: CodeLanguage; case?: SandboxCase },
-  opts?: { timeoutMs?: number },
+  opts?: { timeoutMs?: number; image?: string },
 ): string[] {
   // hasOwnProperty guard: '__proto__' would otherwise resolve truthy through
   // the prototype chain (QA wave-7 F5).
@@ -79,7 +81,6 @@ export function buildRunArgs(
       'SANDBOX_LANGUAGE_UNSUPPORTED',
     );
   }
-  const image = IMAGE_ALLOW_LIST[req.language];
   if (req.case?.stdin !== undefined) {
     throw new AppError(
       400,
@@ -87,6 +88,10 @@ export function buildRunArgs(
       'SANDBOX_V1_NO_STDIN',
     );
   }
+  // opts.image is the resolved template image (or absent = platform default).
+  // An EXPLICIT override is validated loudly — silently falling back to the
+  // default would hide a bad row from the operator (see docblock above).
+  const image = opts?.image !== undefined ? requireSafeTemplateImage(opts.image) : IMAGE_ALLOW_LIST[req.language];
   const timeoutMs = opts?.timeoutMs ?? PER_CASE_TIMEOUT_MS;
   return [
     '--rm', // container destroyed immediately after the run (PLAN §10)
@@ -126,6 +131,18 @@ export function stdinPayload(req: SandboxRequest, _testCase: SandboxCase): strin
 
 // ─── Runtime invariant checker (used by DockerExecutor AND the tests) ─────────
 
+/** Fail-closed validator for an explicit image override (see buildRunArgs). */
+function requireSafeTemplateImage(image: string): string {
+  if (!isSafeImageRef(image)) {
+    throw new AppError(
+      500,
+      `Sandbox template image rejected as unsafe: ${JSON.stringify(image.slice(0, 120))}`,
+      'SANDBOX_TEMPLATE_UNSAFE',
+    );
+  }
+  return image;
+}
+
 /**
  * DEFAULT-DENY, EXACT-PREFIX invariant checking (QA wave-7 F1–F4 redesign).
  *
@@ -134,8 +151,8 @@ export function stdinPayload(req: SandboxRequest, _testCase: SandboxCase): strin
  * "contains the right flags" checker proves nothing: `--network none
  * --network host` passes it while docker runs host networking. The builder's
  * argv is fully deterministic, therefore the ONLY correct runtime check is:
- * the flag region (argv up to and including the image) must EXACTLY equal a
- * canonical hardened prefix for one of the allow-listed languages.
+ * the flag region (argv up to and including the image) must EXACTLY equal the
+ * canonical hardened prefix for the resolved image.
  *
  * Consequences by construction: duplicate/`=false` flag forms fail (prefix
  * mismatch), foreign images fail (position mismatch), ANY extra flag
@@ -143,6 +160,14 @@ export function stdinPayload(req: SandboxRequest, _testCase: SandboxCase): strin
  * the candidate's own program argv — inert data, never scanned, so an
  * LLM-generated case arg of literally `--privileged` can no longer abort the
  * whole execution (the old checker's fail-closed collateral, F4).
+ *
+ * V2-4 (D21) PARAMETERIZATION — the exact-prefix law is NOT weakened: with
+ * `opts.image` (a company template override) the accepted prefix set is
+ * rebuilt from THAT image alone — canonical prefix = flags + THE RESOLVED
+ * image (opts.timeoutMs pins --stop-timeout the same way). The default-image
+ * prefixes are NOT accepted in that mode: the checker verifies the spawn argv
+ * matches exactly what the resolver decided, byte for byte. Without opts it
+ * stays the historical default set — one prefix per allow-listed language.
  *
  * The canonical prefixes derive from buildRunArgs itself: the checker's job
  * is to catch argv tampering/regression between construction and spawn; the
@@ -159,20 +184,42 @@ const CANONICAL_PREFIXES: readonly string[][] = (Object.keys(IMAGE_ALLOW_LIST) a
 );
 
 /**
+ * Canonical hardened prefixes for one resolution context (pure): the flag
+ * region buildRunArgs produces for every language under `opts`. With an
+ * image pinned, all languages share the same flag region (they differ only
+ * in image and interpreter command, both sliced off) — the array form keeps
+ * the derivation identical to the default mode.
+ */
+function canonicalPrefixes(opts?: { image?: string; timeoutMs?: number }): readonly string[][] {
+  if (opts?.image === undefined) return CANONICAL_PREFIXES;
+  return (Object.keys(IMAGE_ALLOW_LIST) as CodeLanguage[]).map((lang) => {
+    // buildRunArgs validates opts.image (throws SANDBOX_TEMPLATE_UNSAFE) —
+    // the checker never mints a prefix for an unsafe image.
+    const full = buildRunArgs({ language: lang }, opts);
+    const cmdLen = COMMAND_PREFIX[lang].length;
+    return full.slice(0, full.length - cmdLen);
+  });
+}
+
+/**
  * PURE invariant checker over a `docker run` argv (everything after `run`).
  * Throws AppError(500, 'SANDBOX_ARGS_UNHARDENED') unless the argv starts with
- * EXACTLY one canonical hardened prefix (see CANONICAL_PREFIXES above).
+ * EXACTLY one canonical hardened prefix (see canonicalPrefixes above).
  * Called by DockerExecutor's constructor (boot-time fail-fast across all
- * three languages) and in execute() before every spawn.
+ * three languages) and in execute() before every spawn — with the SAME
+ * opts (image + timeoutMs) the argv was built with.
  */
-export function assertHardenedArgs(args: string[]): void {
+export function assertHardenedArgs(
+  args: string[],
+  opts?: { image?: string; timeoutMs?: number },
+): void {
   const fail = (why: string): never => {
     throw new AppError(500, `Refusing to spawn unhardened docker argv: ${why}`, 'SANDBOX_ARGS_UNHARDENED');
   };
 
   if (args.length === 0) fail('empty argv');
 
-  const matched = CANONICAL_PREFIXES.some(
+  const matched = canonicalPrefixes(opts).some(
     (prefix) =>
       args.length >= prefix.length &&
       prefix.every((token, i) => args[i] === token),

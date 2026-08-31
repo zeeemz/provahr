@@ -31,6 +31,7 @@ vi.mock('../src/prisma', () => ({
 }));
 
 import { prisma } from '../src/prisma';
+import { resetAuthModeCacheForTests } from '../src/modules/platform/settings.service';
 import { createApp } from '../src/app';
 
 const app = createApp();
@@ -279,5 +280,85 @@ describe('GET /api/platform/settings (super admin)', () => {
     const res = await request(app).get('/api/platform/settings').set(auth);
     expect(res.status).toBe(200);
     expect(['local', 'oidc']).toContain(res.body.authMode);
+  });
+});
+
+// ─── V2-4 (D21): platform-wide sandbox template oversight (read-only) ─────────
+
+describe('GET /api/platform/sandbox-templates', () => {
+  it('rejects a company token (RECRUITER → 403)', async () => {
+    // Earlier suites prime platformSettings.findUnique with oidc, and the
+    // middleware's mode read is 10s-cached — drop the cache and re-prime
+    // local so requireAuth resolves the local user before the role gate.
+    resetAuthModeCacheForTests();
+    vi.mocked(prisma.platformSettings.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(recruiterUser as never);
+    const res = await request(app).get('/api/platform/sandbox-templates').set(auth);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
+  });
+
+  it('lists every company with per-language resolved images (super admin)', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(superAdminUser as never);
+    vi.mocked(prisma.company.findMany).mockResolvedValue([
+      {
+        id: 'co-1',
+        name: 'Acme Software',
+        sandboxTemplates: [
+          {
+            id: 'tpl-1',
+            name: 'Node CI',
+            description: null,
+            language: 'NODE',
+            image: 'registry.acme.test/node:20-ci',
+            enabled: true,
+            updatedAt: new Date('2026-08-29T00:00:00Z'),
+          },
+        ],
+      },
+      {
+        id: 'co-2',
+        name: 'Globex',
+        sandboxTemplates: [
+          {
+            id: 'tpl-2',
+            name: 'Draft bash',
+            description: null,
+            language: 'BASH',
+            image: 'globex/bash:5.2',
+            enabled: false, // disabled draft: never overrides
+            updatedAt: new Date('2026-08-29T00:00:00Z'),
+          },
+        ],
+      },
+      { id: 'co-3', name: 'Initech', sandboxTemplates: [] },
+    ] as never);
+
+    const res = await request(app).get('/api/platform/sandbox-templates').set(auth);
+    expect(res.status).toBe(200);
+    expect(res.body.companies).toHaveLength(3);
+
+    const acme = res.body.companies[0];
+    expect(acme).toMatchObject({ companyId: 'co-1', companyName: 'Acme Software', anyOverride: true });
+    const acmeNode = acme.languages.find((l: { language: string }) => l.language === 'NODE');
+    expect(acmeNode).toMatchObject({
+      activeImage: 'registry.acme.test/node:20-ci',
+      activeSource: 'COMPANY',
+      defaultImage: 'node:20-alpine',
+    });
+    const acmeBash = acme.languages.find((l: { language: string }) => l.language === 'BASH');
+    expect(acmeBash.activeSource).toBe('PLATFORM');
+
+    // A DISABLED template resolves to the platform default — drafts never run.
+    const globex = res.body.companies[1];
+    expect(globex.anyOverride).toBe(false);
+    const globexBash = globex.languages.find((l: { language: string }) => l.language === 'BASH');
+    expect(globexBash).toMatchObject({ activeImage: 'bash:5.2', activeSource: 'PLATFORM' });
+    expect(globexBash.template.enabled).toBe(false); // …but the draft is still visible to the platform owner.
+
+    // Companies without rows list with null templates (unconfigured, not broken).
+    const initech = res.body.companies[2];
+    expect(initech.anyOverride).toBe(false);
+    for (const l of initech.languages) expect(l.template).toBeNull();
   });
 });

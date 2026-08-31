@@ -20,6 +20,11 @@
 // flagSummary.unscoredItemIds — a platform-side event must never silently
 // penalize a candidate. CODE with no reachable Docker degrades the whole run
 // to a retryable failure instead (AppError 503 propagates → queue retry).
+//
+// V2-4 (PLAN §12 D21): the session's COMPANY resolves which sandbox IMAGES run
+// its CODE answers — enabled sandbox templates override the platform defaults
+// (loadTemplateImages → createExecutor({images})); the argv hardening is
+// identical either way (builder.ts re-asserts per resolved image).
 
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -29,9 +34,11 @@ import { enqueue } from '../../lib/queue';
 import { decryptSecret } from '../../lib/crypto';
 import { scoreSwipe, type SwipeValuation } from '../../lib/scoring/swipe';
 import { scoreMcq } from '../../lib/scoring/mcq';
+import { CODE_LANGUAGES, type CodeLanguage } from '../../lib/assessment/item';
 import { getActiveAdapter, type LlmAdapter } from '../../lib/llm';
-import type { SandboxExecutor } from '../../lib/sandbox';
+import type { ImageOverrides, SandboxExecutor } from '../../lib/sandbox';
 import { createExecutor } from '../../lib/sandbox';
+import { IMAGE_ALLOW_LIST, resolveImage } from '../../lib/sandbox/templates';
 import { assessmentItemSchema, type AssessmentItem } from '../../lib/assessment/item';
 import {
   buildWrittenPrompt,
@@ -114,6 +121,35 @@ export async function enqueueEvaluation(sessionId: string): Promise<{ id: string
 }
 
 // ─── Worker: runEvaluation ────────────────────────────────────────────────────
+
+/**
+ * V2-4 (PLAN §12 D21): the company's RESOLVED sandbox template images for one
+ * evaluation run — only the languages whose ENABLED template image actually
+ * overrides the platform default. Resolution is an overlay, never a
+ * dependency: any failure here (database blip included) degrades to the
+ * defaults (undefined) so candidate evaluation cannot go down over template
+ * data. resolveImage additionally drops unsafe stored refs — the default is
+ * the safe direction — while buildRunArgs re-validates every override at
+ * build time (SANDBOX_TEMPLATE_UNSAFE) as the fail-closed backstop.
+ */
+async function loadTemplateImages(companyId: string): Promise<ImageOverrides | undefined> {
+  try {
+    const templates = await prisma.sandboxTemplate.findMany({
+      where: { companyId, enabled: true },
+      select: { language: true, image: true },
+    });
+    const images: ImageOverrides = {};
+    for (const template of templates) {
+      if (!CODE_LANGUAGES.includes(template.language as CodeLanguage)) continue; // unknown language row: inert
+      const language = template.language as CodeLanguage;
+      const image = resolveImage(language, template); // unsafe ⇒ default (never surfaced as an override)
+      if (image !== IMAGE_ALLOW_LIST[language]) images[language] = image;
+    }
+    return Object.keys(images).length > 0 ? images : undefined;
+  } catch {
+    return undefined; // template data is best-effort; the defaults stay safe
+  }
+}
 
 /** Loads, decrypts and revalidates the active pool ONCE per run (site #2). */
 async function loadActivePoolItems(jobId: string): Promise<Map<string, AssessmentItem>> {
@@ -222,7 +258,14 @@ export async function runEvaluation(sessionId: string): Promise<void> {
   const voidedItemIds = new Set(voidedRows.map((r) => r.itemId));
 
   const adapter = await tryGetAdapter(session.job.companyId);
-  let executor: SandboxExecutor | null = null; // lazy: swipe/mcq-only sessions never build it
+  // V2-4 (D21): the company's sandbox template overrides, loaded ONCE and only
+  // when a CODE answer will actually need an executor (swipe/mcq-only sessions
+  // never query the table). Undefined ⇒ no overrides ⇒ the exact pre-V2-4
+  // createExecutor('docker') call happens (tests pin that seam).
+  const templateImages = questions.some((q) => q.format === 'CODE')
+    ? await loadTemplateImages(session.job.companyId)
+    : undefined;
+  let executor: SandboxExecutor | null = null; // lazy: built on the first CODE answer
 
   /** Item ids that cannot be fairly scored this run (pool drift / needs LLM). */
   const unscoredItemIds = new Set<string>();
@@ -257,7 +300,13 @@ export async function runEvaluation(sessionId: string): Promise<void> {
     let create: Prisma.EvaluationUncheckedCreateInput;
     try {
       create = await evaluateQuestion(question, item, adapter, () => {
-        executor ??= createExecutor('docker'); // production path; tests use fake/injectable seams
+        // Production path; tests use fake/injectable seams. With company
+        // templates the resolved images ride along (V2-4) — otherwise the
+        // call is byte-for-byte the historical createExecutor('docker').
+        executor ??=
+          templateImages === undefined
+            ? createExecutor('docker')
+            : createExecutor('docker', undefined, { images: templateImages });
         return executor;
       });
     } catch (err) {

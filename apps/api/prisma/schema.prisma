@@ -135,10 +135,11 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users        User[]
-  jobs         Job[]
-  llmProviders LlmProvider[]
-  authConfig   CompanyAuthConfig?
+  users           User[]
+  jobs            Job[]
+  llmProviders    LlmProvider[]
+  authConfig      CompanyAuthConfig?
+  sandboxTemplates SandboxTemplate[]
 
   @@map("companies")
 }
@@ -355,6 +356,45 @@ model CompanyAuthConfig {
   updatedAt DateTime @updatedAt
 
   @@map("company_auth_configs")
+}
+
+// ─── Company-scoped sandbox image templates (PLAN.md §12 D21, V2-4) ──────────
+
+/// A tenant's sandbox image override for ONE code language (D21): e.g. a
+/// company that runs Java exercises points `NODE` (or any language row) at its
+/// own hardened image. Exactly one row per (companyId, language) — a PUT
+/// upserts it. The image string is shape-guarded at SAVE time
+/// (src/lib/sandbox/templates.ts isSafeImageRef, wired into the admin zod
+/// schema) AND at BUILD time (buildRunArgs throws SANDBOX_TEMPLATE_UNSAFE):
+/// lowercase docker-ref grammar only, ≤100 chars, no flag/shell metachars.
+///
+/// Resolution (templates.resolveImage): an ENABLED row with a SAFE image
+/// overrides the platform default (IMAGE_ALLOW_LIST) for that company's CODE
+/// evaluations; disabled, missing or unsafe rows fall back to the default —
+/// the exact-prefix argv hardening (builder.assertHardenedArgs) is rebuilt
+/// per resolved image and is never weakened (PLAN §10, docs/TESTING.md §6 #7).
+///
+/// `language` is a string validated at the API boundary (BASH | NODE | PYTHON
+/// — lib/assessment/item.ts CODE_LANGUAGES), same pattern as
+/// SessionQuestion.format. `createdBy` is an audit stamp (admin user id), no
+/// FK — deleting the admin must never cascade a live template away
+/// (VoidedItem.voidedBy precedent).
+model SandboxTemplate {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  language    String
+  image       String
+  enabled     Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, language])
+  @@index([companyId])
+  @@map("sandbox_templates")
 }
 
 // ─── LLM providers (PLAN.md Phase 1, decision D9) ────────────────────────────
