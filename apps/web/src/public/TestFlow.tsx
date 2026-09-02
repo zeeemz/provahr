@@ -607,7 +607,7 @@ function QuestionCard({
 function formatLabel(format: string): string {
   switch (format) {
     case 'SWIPE_MCQ':
-      return 'Like / dislike each statement';
+      return 'Select all true statements';
     case 'MCQ':
       return 'Multiple choice';
     case 'WRITTEN':
@@ -650,42 +650,31 @@ function SwipeBody({
 }): JSX.Element {
   const [state, setState] = useState<Record<string, SwipeValuation>>(saved);
 
-  function value(optionId: string, v: SwipeValuation): void {
-    // Toggle: tapping the active valuation again clears it (skipped option).
+  function toggle(optionId: string, checked: boolean): void {
+    // Standard web questionnaire: checked = agreed/true (LIKE), unchecked =
+    // disagreed/false (DISLIKE). Identical wire format to the mobile swipe
+    // cards, so server-side scoring is untouched.
     const next = { ...state };
-    if (next[optionId] === v) delete next[optionId];
-    else next[optionId] = v;
+    next[optionId] = checked ? 'LIKE' : 'DISLIKE';
     setState(next);
     onAnswer(next);
   }
 
   return (
     <div>
-      <p className="hint">For each statement: like it if you agree it is true/sound, dislike it if not. You may leave statements unvalued.</p>
+      <p className="hint">Select all statements that are true. Leave the false ones unchecked.</p>
       {options.map((option) => {
-        const current = state[option.id];
+        const checked = state[option.id] === 'LIKE';
         return (
-          <div key={option.id} className="swipe-option">
+          <label key={option.id} className="swipe-option" style={{ cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => toggle(option.id, e.target.checked)}
+              style={{ width: 18, height: 18, accentColor: '#1d4ed8', flexShrink: 0 }}
+            />
             <span className="text">{option.text}</span>
-            <span className="swipe-buttons">
-              <button
-                type="button"
-                className={`like${current === 'LIKE' ? '' : ' off'}`}
-                onClick={() => value(option.id, 'LIKE')}
-                aria-pressed={current === 'LIKE'}
-              >
-                Like
-              </button>
-              <button
-                type="button"
-                className={`dislike${current === 'DISLIKE' ? '' : ' off'}`}
-                onClick={() => value(option.id, 'DISLIKE')}
-                aria-pressed={current === 'DISLIKE'}
-              >
-                Dislike
-              </button>
-            </span>
-          </div>
+          </label>
         );
       })}
     </div>

@@ -88,6 +88,12 @@ export function mmss(ms: number): string {
 /** Label lookup with a human default — enums stay raw in the data model. */
 export function humanize(value: string | null | undefined): string {
   if (!value) return '—';
+  // Web shows standard questionnaire wording; the swipe interaction is the
+  // mobile app's rendering of the same format (D14).
+  const overrides: Record<string, string> = {
+    SWIPE_MCQ: 'Select-all (swipe on mobile)',
+  };
+  if (overrides[value]) return overrides[value];
   return value
     .replace(/_/g, ' ')
     .toLowerCase()
