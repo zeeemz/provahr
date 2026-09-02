@@ -78,7 +78,7 @@ describe('admin llm-providers auth gate', () => {
   it('rejects POST /api/admin/llm-providers without a token', async () => {
     const res = await request(app).post('/api/admin/llm-providers').send({
       kind: 'ANTHROPIC',
-      apiKey: 'sk-ant-unauth-test',
+      apiKey: 'TESTKEY_unauth',
       textModel: 'claude-sonnet-4-20250514',
     });
     expect(res.status).toBe(401);
@@ -295,7 +295,7 @@ describe('PUT /api/admin/sandbox-templates (company admin)', () => {
 });
 
 describe('toRedactedProvider', () => {
-  const apiKey = 'sk-ant-redaction-7799';
+  const apiKey = 'TESTKEY_redaction_7799';
 
   const redacted = toRedactedProvider({
     id: 'provider-1',

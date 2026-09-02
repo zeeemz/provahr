@@ -45,7 +45,7 @@ afterEach(() => {
 describe('OpenAiCompatibleAdapter', () => {
   const config = {
     baseUrl: 'https://api.openai.com/v1/',
-    apiKey: 'sk-openai-test-1234',
+    apiKey: 'TESTKEY_openai_1234',
     textModel: 'gpt-4o-mini',
   };
 
@@ -60,7 +60,7 @@ describe('OpenAiCompatibleAdapter', () => {
     expect(res).toEqual({ text: 'hello there', model: 'gpt-4o-mini' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.openai.com/v1/chat/completions');
-    expect(headersOf(0).authorization).toBe('Bearer sk-openai-test-1234');
+    expect(headersOf(0).authorization).toBe('Bearer TESTKEY_openai_1234');
     expect(headersOf(0)['content-type']).toBe('application/json');
     const body = bodyOf(0);
     expect(body.messages).toEqual([
@@ -117,7 +117,7 @@ describe('OpenAiCompatibleAdapter', () => {
 describe('AnthropicAdapter', () => {
   const config = {
     baseUrl: 'https://api.anthropic.com',
-    apiKey: 'sk-ant-test-5678',
+    apiKey: 'TESTKEY_anthropic_5678',
     textModel: 'claude-sonnet-4-20250514',
   };
 
@@ -132,7 +132,7 @@ describe('AnthropicAdapter', () => {
     expect(res).toEqual({ text: 'part one two', model: 'claude-sonnet-4-20250514' });
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.anthropic.com/v1/messages');
     const headers = headersOf(0);
-    expect(headers['x-api-key']).toBe('sk-ant-test-5678');
+    expect(headers['x-api-key']).toBe('TESTKEY_anthropic_5678');
     expect(headers['anthropic-version']).toBe('2023-06-01');
     expect(headers['content-type']).toBe('application/json');
     expect(headers.authorization).toBeUndefined();
@@ -178,7 +178,7 @@ describe('AnthropicAdapter', () => {
 describe('AzureOpenAiAdapter', () => {
   const config = {
     baseUrl: 'https://provahr-llm.openai.azure.com',
-    apiKey: 'azure-key-test-9012',
+    apiKey: 'TESTKEY_azure_9012',
     textModel: 'dep-gpt-4o',
   };
 
@@ -192,7 +192,7 @@ describe('AzureOpenAiAdapter', () => {
       'https://provahr-llm.openai.azure.com/openai/deployments/dep-gpt-4o/chat/completions?api-version=2024-10-21',
     );
     const headers = headersOf(0);
-    expect(headers['api-key']).toBe('azure-key-test-9012');
+    expect(headers['api-key']).toBe('TESTKEY_azure_9012');
     expect(headers.authorization).toBeUndefined();
     expect(bodyOf(0).max_tokens).toBe(1024);
   });
@@ -201,7 +201,7 @@ describe('AzureOpenAiAdapter', () => {
 describe('transport behavior (postJson)', () => {
   const config = {
     baseUrl: 'https://api.openai.com/v1',
-    apiKey: 'sk-retry-test-9999',
+    apiKey: 'TESTKEY_retry_9999',
     textModel: 'gpt-4o-mini',
   };
 
@@ -229,16 +229,16 @@ describe('transport behavior (postJson)', () => {
   });
 
   it('scrubs the API key from the thrown LlmError message and detail', async () => {
-    queue.push(new Response('{"error":"Invalid API key sk-retry-test-9999 supplied"}', { status: 401 }));
+    queue.push(new Response('{"error":"Invalid API key TESTKEY_retry_9999 supplied"}', { status: 401 }));
     const adapter = new OpenAiCompatibleAdapter(config);
     const err = await adapter.chat({ messages: [{ role: 'user', content: 'hi' }] }).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(LlmError);
     const llmErr = err as LlmError;
     expect(llmErr.message).toContain('***');
-    expect(llmErr.message).not.toContain('sk-retry-test-9999');
+    expect(llmErr.message).not.toContain('TESTKEY_retry_9999');
     expect(llmErr.detail).toContain('***');
-    expect(llmErr.detail).not.toContain('sk-retry-test-9999');
+    expect(llmErr.detail).not.toContain('TESTKEY_retry_9999');
   });
 
   it('maps network failures to a 504 LlmError without retrying', async () => {
@@ -269,7 +269,7 @@ describe('createAdapter / buildAdapterFromProvider', () => {
     queue.push(ok({ choices: [{ message: { content: 'x' } }] }));
     const adapter = createAdapter('OPENAI_COMPATIBLE', {
       baseUrl: '',
-      apiKey: 'sk-default-url-1',
+      apiKey: 'TESTKEY_defaulturl_1',
       textModel: 'gpt-4o-mini',
     });
     expect(adapter.kind).toBe('OPENAI_COMPATIBLE');
@@ -295,7 +295,7 @@ describe('createAdapter / buildAdapterFromProvider', () => {
 
   it('rejects Azure with an empty baseUrl (no default exists)', () => {
     expect(() =>
-      createAdapter('AZURE_OPENAI', { baseUrl: '', apiKey: 'az-key-no-base-url', textModel: 'dep' }),
+      createAdapter('AZURE_OPENAI', { baseUrl: '', apiKey: 'TESTKEY_nobaseurl', textModel: 'dep' }),
     ).toThrowError(/baseUrl/);
   });
 });
