@@ -624,6 +624,28 @@ export interface PlatformSettings {
   authMode: AuthMode;
 }
 
+// ─── Two-tier system prompts (founder requirement) ────────────────────────────
+
+/**
+ * GET/PUT /api/platform/prompts/main — the platform-wide MAIN prompt tier.
+ * Appended ahead of every job's own prompt on every LLM request (JD drafts,
+ * question pools, written/code reviews). Readable by every authenticated
+ * user; editable only by the super admin.
+ */
+export interface PlatformMainPrompt {
+  mainPrompt: string;
+}
+
+/**
+ * GET/PUT /api/jobs/:jobId/prompt — the role-specific (job) prompt tier plus
+ * the platform main prompt for display convenience. `jobPrompt` is the
+ * HR-editable overlay (null = none); `mainPrompt` is read-only here.
+ */
+export interface JobPromptView {
+  jobPrompt: string | null;
+  mainPrompt: string;
+}
+
 // ─── Dashboard stats (modules/stats) ──────────────────────────────────────────
 
 export interface DashboardStats {

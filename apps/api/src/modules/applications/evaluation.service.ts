@@ -46,6 +46,8 @@ import {
   CODE_SYSTEM_PROMPT,
   WRITTEN_SYSTEM_PROMPT,
 } from '../../prompts/evaluation';
+import { composeSystem } from '../../prompts/compose';
+import { getMainPrompt } from '../platform/settings.service';
 import type { AuthUser } from '../../types';
 
 // ─── Vocabulary ───────────────────────────────────────────────────────────────
@@ -228,7 +230,9 @@ export async function runEvaluation(sessionId: string): Promise<void> {
     where: { id: sessionId },
     // job.companyId rides along (V2-2): the session's company decides which
     // tenant's LLM provider grades it — one select, no extra round trip.
-    select: { id: true, jobId: true, status: true, job: { select: { companyId: true } } },
+    // job.jobPrompt rides along too (two-tier prompts): the role-specific
+    // overlay for the review LLM calls below.
+    select: { id: true, jobId: true, status: true, job: { select: { companyId: true, jobPrompt: true } } },
   });
   if (!session) return; // session vanished — nothing to evaluate (queue no-op)
   if (session.status !== 'SUBMITTED') {
@@ -258,6 +262,10 @@ export async function runEvaluation(sessionId: string): Promise<void> {
   const voidedItemIds = new Set(voidedRows.map((r) => r.itemId));
 
   const adapter = await tryGetAdapter(session.job.companyId);
+  // Two-tier prompts (founder requirement): the platform MAIN prompt + this
+  // job's overlay, composed ahead of the review system prompts. One cached
+  // read per run (10s cache — putMainPrompt refreshes it on edit).
+  const tiered = { mainPrompt: await getMainPrompt(), jobPrompt: session.job.jobPrompt };
   // V2-4 (D21): the company's sandbox template overrides, loaded ONCE and only
   // when a CODE answer will actually need an executor (swipe/mcq-only sessions
   // never query the table). Undefined ⇒ no overrides ⇒ the exact pre-V2-4
@@ -299,7 +307,7 @@ export async function runEvaluation(sessionId: string): Promise<void> {
 
     let create: Prisma.EvaluationUncheckedCreateInput;
     try {
-      create = await evaluateQuestion(question, item, adapter, () => {
+      create = await evaluateQuestion(question, item, adapter, tiered, () => {
         // Production path; tests use fake/injectable seams. With company
         // templates the resolved images ride along (V2-4) — otherwise the
         // call is byte-for-byte the historical createExecutor('docker').
@@ -330,12 +338,14 @@ export async function runEvaluation(sessionId: string): Promise<void> {
 /**
  * Scores one question and returns the Evaluation create payload. Pure w.r.t.
  * the database except the sandbox execution (and its ExecutionResult write)
- * for CODE answers, and the LLM review calls for CODE/WRITTEN.
+ * for CODE answers, and the LLM review calls for CODE/WRITTEN. `tiered`
+ * carries the two-tier system prompts composed ahead of the review prompts.
  */
 async function evaluateQuestion(
   question: QuestionRow,
   item: AssessmentItem,
   adapter: LlmAdapter | null,
+  tiered: { mainPrompt: string; jobPrompt: string | null },
   getExecutor: () => SandboxExecutor,
 ): Promise<Prisma.EvaluationUncheckedCreateInput> {
   const answer = question.answer;
@@ -430,7 +440,7 @@ async function evaluateQuestion(
     const review = codeReviewSchema.parse(
       await chatJson(
         adapter,
-        CODE_SYSTEM_PROMPT,
+        composeSystem(CODE_SYSTEM_PROMPT, tiered.mainPrompt, tiered.jobPrompt),
         buildCodeReviewPrompt({
           prompt: item.prompt,
           language: item.language,
@@ -475,7 +485,7 @@ async function evaluateQuestion(
   const review = writtenReviewSchema.parse(
     await chatJson(
       adapter,
-      WRITTEN_SYSTEM_PROMPT,
+      composeSystem(WRITTEN_SYSTEM_PROMPT, tiered.mainPrompt, tiered.jobPrompt),
       buildWrittenPrompt({
         prompt: item.prompt,
         rubric: item.rubric,

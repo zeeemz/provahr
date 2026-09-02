@@ -1,4 +1,5 @@
 import express, { Router } from 'express';
+import { z } from 'zod';
 import { asyncHandler } from '../../lib/http';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import {
@@ -17,7 +18,7 @@ import {
 } from './jobs.schema';
 import { listForJob } from '../applications/applications.service';
 import { listApplicationsQuerySchema } from '../applications/applications.schema';
-import { createIntake, getJd, editDraft, approveJd } from './jd.service';
+import { createIntake, getJd, editDraft, approveJd, getJobPrompt, putJobPrompt } from './jd.service';
 import { intakeSchema, editDraftSchema, approveSchema } from './jd.schema';
 import {
   putBlueprint,
@@ -99,6 +100,38 @@ router.post(
     approveSchema.parse(req.body);
     const job = await approveJd(req.user!, req.params.jobId!);
     res.json({ job });
+  }),
+);
+
+// ── Job-specific prompt tier (founder requirement: two-tier prompts) ─────
+// The role-specific overlay HR writes for THIS job; the platform MAIN prompt
+// comes back read-only for display (only the super admin can edit that one,
+// via PUT /api/platform/prompts/main).
+
+/** PUT body — 0..8000 chars; null clears the overlay. */
+const putJobPromptSchema = z.object({
+  jobPrompt: z.string().max(8_000, 'jobPrompt must be at most 8000 characters').nullable(),
+});
+
+/** The role-specific prompt (+ the platform main prompt, read-only). */
+router.get(
+  '/:jobId/prompt',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const view = await getJobPrompt(req.user!, req.params.jobId!);
+    res.json(view);
+  }),
+);
+
+/** Set / clear the role-specific prompt (recruiter and admin; null clears). */
+router.put(
+  '/:jobId/prompt',
+  requireAuth,
+  requireRole('ADMIN', 'RECRUITER'),
+  asyncHandler(async (req, res) => {
+    const input = putJobPromptSchema.parse(req.body);
+    const view = await putJobPrompt(req.user!, req.params.jobId!, input.jobPrompt);
+    res.json(view);
   }),
 );
 

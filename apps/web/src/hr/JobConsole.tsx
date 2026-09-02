@@ -14,6 +14,7 @@ import { api, errMessage } from '../api/client';
 import type {
   BlueprintSection,
   BlueprintStatusView,
+  JobPromptView,
   JdDraft,
   JdView,
   Job,
@@ -118,6 +119,7 @@ export default function JobConsole(): JSX.Element {
       {isRecruiterPlus(user) ? (
         <>
           <JdStep jobId={job.id} onApproved={() => void loadJob()} />
+          <RolePromptCard jobId={job.id} />
           <BlueprintStep jobId={job.id} jdApproved={jdApproved} />
           <SamplesStep jobId={job.id} />
           <PoolStep jobId={job.id} />
@@ -322,6 +324,104 @@ function DraftEditor({ jobId, initial, onApproved }: { jobId: string; initial: J
         {saved && <span className="form-ok" style={{ margin: 0, padding: '4px 10px' }}>Saved ✓</span>}
       </div>
       <p className="hint">Approval copies the draft onto the role — the blueprint unlocks after.</p>
+    </div>
+  );
+}
+
+// ─── AI prompts (two-tier, founder requirement) ───────────────────────────────
+
+/**
+ * The job-specific prompt tier, plus the platform MAIN prompt rendered
+ * read-only (company users can see it; only the super admin can edit it).
+ * Set before generating the JD / samples / pool — it rides every AI request
+ * made for this role.
+ */
+function RolePromptCard({ jobId }: { jobId: string }): JSX.Element {
+  const [mainPrompt, setMainPrompt] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get<JobPromptView>(`/jobs/${jobId}/prompt`)
+      .then((res) => {
+        if (!cancelled) {
+          setMainPrompt(res.mainPrompt);
+          setPrompt(res.jobPrompt ?? '');
+          setLoaded(true);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId]);
+
+  async function save(): Promise<void> {
+    setBusy(true);
+    setFormError(null);
+    setSaved(false);
+    try {
+      // Empty editor = no overlay: clear with null rather than saving ''.
+      const body = prompt.trim() === '' ? { jobPrompt: null } : { jobPrompt: prompt };
+      const res = await api.put<{ jobPrompt: string | null }>(`/jobs/${jobId}/prompt`, body);
+      setPrompt(res.jobPrompt ?? '');
+      setSaved(true);
+    } catch (err) {
+      setFormError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2>AI prompts</h2>
+      {error !== null && <ErrorBox err={error} note="Could not load the prompts" />}
+      {error === null && !loaded && <Spinner label="Loading prompts…" />}
+      {loaded && (
+        <>
+          <details style={{ marginBottom: 12 }}>
+            <summary className="hint" style={{ cursor: 'pointer' }}>Platform rules (read-only)</summary>
+            {mainPrompt !== null && mainPrompt.trim() !== '' ? (
+              <pre style={{ maxHeight: 200, whiteSpace: 'pre-wrap' }}>{mainPrompt}</pre>
+            ) : (
+              <p className="muted" style={{ margin: '8px 0 0' }}>
+                No platform rules set — the super admin can add them in the platform console.
+              </p>
+            )}
+          </details>
+
+          <label className="field" htmlFor="job-prompt">Role-specific prompt</label>
+          <textarea
+            id="job-prompt"
+            value={prompt}
+            maxLength={8000}
+            style={{ minHeight: 120 }}
+            onChange={(e) => {
+              setPrompt(e.target.value);
+              setSaved(false);
+            }}
+          />
+          <p className="hint">
+            Appended to every AI request for this role — tone, emphasis, must-cover topics.
+          </p>
+          {formError !== null && <p className="form-error">{formError}</p>}
+          {saved && <p className="form-ok" style={{ marginTop: 0 }}>Saved ✓</p>}
+          <p>
+            <button type="button" disabled={busy} onClick={() => void save()}>
+              {busy ? 'Saving…' : 'Save role prompt'}
+            </button>
+          </p>
+        </>
+      )}
     </div>
   );
 }

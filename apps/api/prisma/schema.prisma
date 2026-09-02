@@ -192,6 +192,15 @@ model Job {
   jdDraft        Json?    // LLM-produced draft object (HR-editable)
   jdError        String?  // last generation failure message (interim state)
 
+  // ── Two-tier system prompts (founder requirement) ─────────────────────
+  // The ROLE-SPECIFIC prompt tier: freeform HR instructions (tone, emphasis,
+  // must-cover topics) appended to every LLM request made for THIS job —
+  // JD generation, sample/pool item generation and the written/code review
+  // passes (src/prompts/compose.ts composes it ahead of the base prompt).
+  // Nullable: most jobs carry no overlay and behave exactly as before.
+  // Editable via PUT /api/jobs/:jobId/prompt by the company's ADMIN/RECRUITER.
+  jobPrompt      String?
+
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -321,6 +330,12 @@ model Scorecard {
 model PlatformSettings {
   id        String   @id @default("singleton")
   authMode  String   @default("local") // local | oidc (validated at the PUT boundary)
+  // The MAIN prompt tier (founder requirement): platform-wide rules appended
+  // ahead of every job's own prompt on every LLM call. Empty string = no
+  // overlay (composeSystem skips empty sections). Editable ONLY by the super
+  // admin (PUT /api/platform/prompts/main); readable by every company user so
+  // HR can see the rules their generations run under (GET, same path).
+  mainPrompt String   @default("")
   updatedAt DateTime @updatedAt
 
   @@map("platform_settings")

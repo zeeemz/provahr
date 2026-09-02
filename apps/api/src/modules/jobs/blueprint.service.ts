@@ -22,6 +22,8 @@ import { enqueue } from '../../lib/queue';
 import { encryptSecret } from '../../lib/crypto';
 import { getActiveAdapter, type LlmAdapter } from '../../lib/llm';
 import { ITEM_SYSTEM_PROMPT, buildItemsUserPrompt } from '../../prompts/pool';
+import { composeSystem } from '../../prompts/compose';
+import { getMainPrompt } from '../platform/settings.service';
 import {
   QUESTION_FORMATS,
   assessmentItemSchema,
@@ -280,14 +282,19 @@ function asItemsArray(parsed: unknown): unknown[] | null {
  * (the model is told not to send one), then must pass assessmentItemSchema —
  * invalid output is skipped, never repaired. Bad JSON / wrong shape counts as
  * zero valid items; the caller decides whether that is fatal.
+ *
+ * `tiered` carries the two-tier system prompts (founder requirement): the
+ * super-admin MAIN prompt and this job's HR-written jobPrompt, composed ahead
+ * of the base ITEM_SYSTEM_PROMPT (which keeps the output contract, last).
  */
 async function generateItems(
   adapter: LlmAdapter,
   input: { jdTitle: string; jdDescription: string; section: BlueprintSection; count: number },
   maxTokens: number,
+  tiered: { mainPrompt: string; jobPrompt: string | null },
 ): Promise<{ valid: AssessmentItem[]; skipped: number }> {
   const res = await adapter.chat({
-    system: ITEM_SYSTEM_PROMPT,
+    system: composeSystem(ITEM_SYSTEM_PROMPT, tiered.mainPrompt, tiered.jobPrompt),
     messages: [
       {
         role: 'user',
@@ -368,6 +375,8 @@ export async function runSamplesGeneration(jobId: string): Promise<void> {
 
   // V2-2: the job's company's provider — never another tenant's.
   const { adapter } = await getActiveAdapter(job.companyId);
+  // Two-tier prompts (founder requirement): read once per run, ride every call.
+  const tiered = { mainPrompt: await getMainPrompt(), jobPrompt: job.jobPrompt };
   const valid: AssessmentItem[] = [];
   let skipped = 0;
   for (const pick of picks) {
@@ -381,6 +390,7 @@ export async function runSamplesGeneration(jobId: string): Promise<void> {
           count: 1,
         },
         SAMPLES_MAX_TOKENS,
+        tiered,
       );
       valid.push(...outcome.valid);
       skipped += outcome.skipped;
@@ -447,6 +457,8 @@ export async function runPoolSeal(jobId: string, reseal = false): Promise<void> 
   const required = requiredPoolSizes(drawSizes({ sections }));
   // V2-2: the job's company's provider — never another tenant's.
   const { adapter } = await getActiveAdapter(job.companyId);
+  // Two-tier prompts (founder requirement): read once per run, ride every call.
+  const tiered = { mainPrompt: await getMainPrompt(), jobPrompt: job.jobPrompt };
 
   const items: AssessmentItem[] = [];
   const tally = countByFormat([]); // running per-format counts
@@ -481,6 +493,7 @@ export async function runPoolSeal(jobId: string, reseal = false): Promise<void> 
             count: batch,
           },
           POOL_BATCH_MAX_TOKENS,
+          tiered,
         );
         skippedTotal += outcome.skipped;
         for (const item of outcome.valid) {
@@ -516,6 +529,7 @@ export async function runPoolSeal(jobId: string, reseal = false): Promise<void> 
             count: batch,
           },
           POOL_BATCH_MAX_TOKENS,
+          tiered,
         );
         skippedTotal += outcome.skipped;
         for (const item of outcome.valid) {

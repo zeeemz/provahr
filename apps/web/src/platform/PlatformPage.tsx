@@ -10,6 +10,9 @@
 // from the platform row on every request, and each company's Keycloak realm
 // is configured inside the tenant (Company admin → Settings → Keycloak). The
 // platform owner keeps local sign-in in SSO mode by design — lockout safety.
+//
+// Also home of the MAIN system prompt (two-tier prompts, founder
+// requirement): the platform-wide rules card below (MainPromptCard).
 
 import { useEffect, useState } from 'react';
 import { api, ApiError, errMessage } from '../api/client';
@@ -17,6 +20,7 @@ import type {
   AuthMode,
   CreateCompanyInput,
   PlatformCompany,
+  PlatformMainPrompt,
   PlatformSandboxTemplateRow,
   PlatformSettings,
 } from '../api/types';
@@ -146,6 +150,8 @@ export default function PlatformPage(): JSX.Element {
         />
       )}
 
+      <MainPromptCard />
+
       {showWizard && (
         <NewCompanyModal
           onClose={() => setShowWizard(false)}
@@ -274,6 +280,85 @@ function AuthModeCard({
           Users provisioned from OIDC have no usable local password; switching back to local means
           they need a password reset or a fresh invite.
         </p>
+      )}
+    </div>
+  );
+}
+
+/** The MAIN system-prompt tier (founder requirement): platform-wide rules. */
+function MainPromptCard(): JSX.Element {
+  const [value, setValue] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get<PlatformMainPrompt>('/platform/prompts/main')
+      .then((res) => {
+        if (!cancelled) {
+          setValue(res.mainPrompt);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errMessage(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function save(): Promise<void> {
+    if (value === null || busy) return;
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const res = await api.put<PlatformMainPrompt>('/platform/prompts/main', { mainPrompt: value });
+      setValue(res.mainPrompt);
+      setSaved(true);
+    } catch (err) {
+      setError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2>Main system prompt</h2>
+      <p className="sub mt0">
+        Platform-wide rules for every AI generation (JDs, tests, evaluations). Company admins can
+        read this in their job console but only the super admin can edit it.
+      </p>
+      {value === null && error === null && <Spinner label="Loading prompt…" />}
+      {error !== null && value === null && <ErrorBox err={error} note="Could not load the main prompt" />}
+      {value !== null && (
+        <>
+          <label className="field" htmlFor="platform-main-prompt">Prompt text</label>
+          <textarea
+            id="platform-main-prompt"
+            value={value}
+            maxLength={8000}
+            style={{ minHeight: 180 }}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setSaved(false);
+            }}
+          />
+          <p className="hint">
+            Appended before each job&rsquo;s own prompt on every AI request, ahead of the built-in
+            output rules. Empty means no platform overlay — generations run exactly as before.
+          </p>
+          {error !== null && <p className="form-error">{error}</p>}
+          {saved && <p className="form-ok" style={{ marginTop: 0 }}>Saved ✓</p>}
+          <p>
+            <button type="button" disabled={busy} onClick={() => void save()}>
+              {busy ? 'Saving…' : 'Save main prompt'}
+            </button>
+          </p>
+        </>
       )}
     </div>
   );

@@ -9,7 +9,7 @@ export interface PlatformSettingsView {
 }
 
 /** @updatedAt is Prisma-managed; the seed/migration provides the column value. */
-type SettingsRow = { authMode: string };
+type SettingsRow = { authMode: string; mainPrompt?: string | null };
 
 function normalizeAuthMode(value: string | null | undefined): AuthMode | null {
   return value === 'local' || value === 'oidc' ? value : null;
@@ -69,6 +69,76 @@ export async function getAuthMode(): Promise<AuthMode> {
   } catch {
     return envAuthMode();
   }
+}
+
+// ─── Main prompt tier (founder requirement: two-tier system prompts) ─────────
+
+/**
+ * Same staleness ceiling as the auth-mode cache (V2-3 pattern): the main
+ * prompt rides every LLM call, so an uncached read would put a settings
+ * query on each one; 10s is the deliberate ceiling on how stale a prompt
+ * edit can be. The PUT below refreshes the cache immediately, so edits made
+ * through the portal apply at once — only out-of-band database edits pay
+ * the 10s.
+ */
+export const MAIN_PROMPT_CACHE_MS = AUTH_MODE_CACHE_MS;
+
+let cachedMainPrompt: { value: string; at: number } | null = null;
+
+/** Test seam: drops the in-memory main-prompt cache so the next read hits the database mock. */
+export function resetMainPromptCacheForTests(): void {
+  cachedMainPrompt = null;
+}
+
+/**
+ * The platform-wide MAIN system-prompt tier (founder requirement): rules the
+ * super admin wants appended to EVERY LLM generation (JDs, test items,
+ * written/code reviews). Composed ahead of each job's own prompt by
+ * src/prompts/compose.ts.
+ *
+ * Fail-open to '' exactly like getAuthMode degrades to env: the overlay is an
+ * enhancement, never a dependency — an unreadable database must not take LLM
+ * calls (or the read-only console) down. Error reads are not cached.
+ */
+export async function getMainPrompt(): Promise<string> {
+  if (cachedMainPrompt && Date.now() - cachedMainPrompt.at < MAIN_PROMPT_CACHE_MS) {
+    return cachedMainPrompt.value;
+  }
+  try {
+    const row = await prisma.platformSettings.findUnique({
+      where: { id: 'singleton' },
+      select: { mainPrompt: true },
+    });
+    const value = typeof row?.mainPrompt === 'string' ? row.mainPrompt : '';
+    cachedMainPrompt = { value, at: Date.now() };
+    return value;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * PUT /api/platform/prompts/main — the super-admin editor for the MAIN tier
+ * (founder requirement: editable ONLY by root). Upsert so `db push` databases
+ * (no migration seed) materialize the singleton row on first write; validation
+ * (0..8000 chars) lives in the router's zod schema.
+ *
+ * Refreshes BOTH caches: the main-prompt one from the written row, and the
+ * auth-mode one because the create branch materializes a row whose defaulted
+ * authMode now outranks the env fallback. (putPlatformSettings above needs no
+ * counterpart here: it never touches mainPrompt, so that cache stays valid.)
+ */
+export async function putMainPrompt(mainPrompt: string): Promise<{ mainPrompt: string }> {
+  const row = await prisma.platformSettings.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton', mainPrompt },
+    update: { mainPrompt },
+    select: { authMode: true, mainPrompt: true },
+  });
+  cachedMainPrompt = { value: row.mainPrompt ?? '', at: Date.now() };
+  const authMode = normalizeAuthMode(row.authMode);
+  if (authMode) cachedAuthMode = { value: authMode, at: Date.now() };
+  return { mainPrompt: row.mainPrompt ?? '' };
 }
 
 /** GET /api/platform/settings — the portal display behind the toggle. */

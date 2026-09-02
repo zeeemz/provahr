@@ -16,6 +16,8 @@ import { AppError } from '../../lib/http';
 import { getActiveAdapter, type ChatImage } from '../../lib/llm';
 import { fetchPageText } from '../../lib/urlFetch';
 import { JD_SYSTEM_PROMPT, buildJdUserPrompt } from '../../prompts/jd';
+import { composeSystem } from '../../prompts/compose';
+import { getMainPrompt } from '../platform/settings.service';
 import { jdDraftPartialSchema } from './jd.schema';
 import type { IntakeInput, EditDraftInput, ScreenshotInput } from './jd.schema';
 import type { AuthUser } from '../../types';
@@ -106,6 +108,35 @@ export async function getJd(user: AuthUser, jobId: string) {
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+// ─── Job-specific prompt tier (founder requirement: two-tier prompts) ────────
+
+/**
+ * GET /api/jobs/:jobId/prompt — the HR-editable role-specific prompt overlay,
+ * plus the platform MAIN prompt for display convenience (company users can
+ * READ the main prompt — the visibility half of the founder requirement —
+ * but only the super admin can edit it, via /api/platform/prompts/main).
+ */
+export async function getJobPrompt(user: AuthUser, jobId: string) {
+  const job = await getScopedJob(user, jobId);
+  return { jobPrompt: job.jobPrompt, mainPrompt: await getMainPrompt() };
+}
+
+/**
+ * PUT /api/jobs/:jobId/prompt — set or clear the role-specific overlay.
+ * Company-scoped via getScopedJob; the ADMIN/RECRUITER gate lives in the
+ * route. `null` clears the overlay (an empty string behaves the same at
+ * composition time — composeSystem skips empty tiers).
+ */
+export async function putJobPrompt(user: AuthUser, jobId: string, jobPrompt: string | null) {
+  const job = await getScopedJob(user, jobId);
+  const updated = await prisma.job.update({
+    where: { id: job.id },
+    data: { jobPrompt },
+    select: { id: true, jobPrompt: true },
+  });
+  return { jobPrompt: updated.jobPrompt };
 }
 
 /** Recursive merge: objects merge, everything else (arrays included) replaces. */
@@ -203,7 +234,9 @@ export async function runJdGeneration(jobId: string): Promise<void> {
     // V2-2: the job's company's provider — never another tenant's.
     const { adapter } = await getActiveAdapter(job.companyId);
     const res = await adapter.chat({
-      system: JD_SYSTEM_PROMPT,
+      // Two-tier prompts (founder requirement): the super-admin MAIN prompt
+      // and this job's HR-written jobPrompt ride AHEAD of the base contract.
+      system: composeSystem(JD_SYSTEM_PROMPT, await getMainPrompt(), job.jobPrompt),
       messages: [
         {
           role: 'user',

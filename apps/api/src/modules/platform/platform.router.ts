@@ -7,11 +7,17 @@ import { getPlatformSettings, putPlatformSettings } from './settings.service';
 import { createCompanySchema, patchCompanySchema, putPlatformSettingsSchema } from './platform.schema';
 import { listPlatformAuthConfigs } from '../admin/auth-config.service';
 import { listPlatformSandboxTemplates } from '../admin/sandbox-templates.service';
+import promptsRouter from './prompts.router';
 
 // Platform console API (PLAN.md §12 D18/D19) — mounted at /api/platform.
 // Every route is requireAuth + requireSuperAdmin: the platform super admin
 // (companyId null) manages TENANTS here; company-scoped routes elsewhere stay
 // company-scoped and never admit this role.
+//
+// ONE exception: the nested /prompts router (two-tier system prompts, founder
+// requirement). Its GET is deliberately ANY authenticated user — company
+// users must be able to READ the main prompt they see in their job console;
+// only its PUT is super-admin. See prompts.router.ts.
 
 const router = Router();
 
@@ -83,5 +89,10 @@ router.get('/auth-configs', requireAuth, requireSuperAdmin, asyncHandler(async (
 router.get('/sandbox-templates', requireAuth, requireSuperAdmin, asyncHandler(async (_req, res) => {
   res.json({ companies: await listPlatformSandboxTemplates() });
 }));
+
+// Two-tier system prompts (founder requirement): the MAIN prompt routes ride
+// the same /api/platform mount (GET/PUT /api/platform/prompts/main) — nested
+// here, auth-config.router.ts pattern, so app.ts stays untouched.
+router.use('/prompts', promptsRouter);
 
 export default router;
