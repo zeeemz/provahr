@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "ProvaHR",
+    "slug": "provahr-candidate",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "provahr",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#f6f8fb",
+    "splash": {
+      "backgroundColor": "#0f172a"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "pan",
+      "usesCleartextTraffic": true
+    },
+    "extra": {
+      "apiUrl": "http://localhost:4000"
+    }
+  }
+}

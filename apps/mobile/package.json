@@ -1,0 +1,27 @@
+{
+  "name": "@provahr/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProvaHR candidate mobile app \u2014 React Native + Expo (browse, apply, consent, Swipe-MCQ test session with signal parity). PLAN.md Phase 6 / D13.",
+  "license": "AGPL-3.0-only",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "expo": "~51.0.28",
+    "expo-clipboard": "~6.0.3",
+    "expo-constants": "~16.0.2",
+    "expo-status-bar": "~1.12.1",
+    "react": "18.2.0",
+    "react-native": "0.74.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@types/react": "~18.2.79",
+    "typescript": "^5.9.2"
+  }
+}

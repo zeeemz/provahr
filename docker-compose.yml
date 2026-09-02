@@ -1,0 +1,131 @@
+# ProvaHR — deployment stack.
+#
+#   docker compose up -d --build
+#   → open http://localhost:4000/setup and complete the first-run wizard.
+#
+# SECURITY: this file ships development defaults (postgres/postgres,
+# admin/admin, a placeholder JWT secret). Change every password and secret
+# before any real use.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres # change me
+      POSTGRES_DB: provahr
+    ports:
+      - "5432:5432"
+    volumes:
+      - provahr_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d provahr"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  keycloak:
+    # Identity provider for OIDC mode (docs/RBAC.md). Deliberately NOT wired to
+    # the `db` service: `start-dev` uses its own embedded dev-file H2 store, so
+    # Keycloak keeps running while PostgreSQL is being reset or migrated.
+    # Pinned to a real, pull-verified tag (the literal "26.x" does not exist
+    # on quay.io — E2E compose finding, same class as the bash image tag).
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    environment:
+      # CHANGE THESE before anything resembling production.
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    volumes:
+      # Realm JSON exports dropped here are imported at startup (see docs/RBAC.md).
+      - ./deploy/keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - "8081:8080"
+    healthcheck:
+      # Keycloak serves /health/ready on its management port (9000); the image
+      # has no wget/curl guarantee, so speak HTTP over bash's /dev/tcp.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /health/ready HTTP/1.1\\nHost: localhost:9000\\nConnection: close\\n\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/provahr
+      JWT_SECRET: dev-only-change-me-jwt-secret-32-chars # change me — min 16 chars
+      # Dev-only value for the local stack (differs from the in-code default so
+      # the production guard in env.ts does not refuse to boot). CHANGE ME.
+      SECRETS_KEY: dev-compose-secrets-key-change-me-too
+      OIDC_ENABLED: "false"
+      CORS_ORIGIN: http://localhost:5173,http://localhost:8080
+      NODE_ENV: production
+      PORT: "4000"
+    # The prisma CLI is baked into the image (see apps/api/Dockerfile), so npx
+    # runs it offline. Schema application is idempotent on every boot.
+    command: >
+      sh -c "cd apps/api &&
+        if ls prisma/migrations/*/migration.sql >/dev/null 2>&1; then
+          npx prisma migrate deploy;
+        else
+          echo 'no committed migrations yet - creating schema with prisma db push';
+          npx prisma db push;
+        fi &&
+        exec node dist/index.js"
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # The async loop runner: JD generation, pool sealing, evaluation. Same image
+  # as the API, different command — without it the AI loop does nothing.
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/provahr
+      JWT_SECRET: dev-only-change-me-jwt-secret-32-chars
+      SECRETS_KEY: dev-compose-secrets-key-change-me-too
+      OIDC_ENABLED: "false"
+      NODE_ENV: production
+    # Migrations are idempotent; the worker ALSO applies them so a fresh
+    # volume can never race the API's boot-time migrate (E2E catch: worker
+    # started on a fresh DB, hit P2021 on job_queue, and crashed).
+    command: sh -c "cd apps/api && npx prisma migrate deploy && node dist/worker.js"
+    # Sandbox executes candidate code via the HOST's Docker daemon
+    # (docker-outside-of-docker). SECURITY NOTE: mounting the socket is
+    # root-equivalent on the host — self-hosted v1 accepts this; per-company
+    # isolation hardening is tracked with V2-4 (pluggable executors).
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  # ── Placeholder services, enabled in later phases ─────────────────────────
+  # web:
+  #   build: ./apps/web
+  #   environment:
+  #     VITE_API_URL: http://localhost:4000
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - api
+  #
+  # worker:
+  #   build: ./apps/worker
+  #   environment:
+  #     DATABASE_URL: postgresql://postgres:postgres@db:5432/provahr
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
+volumes:
+  provahr_pgdata:

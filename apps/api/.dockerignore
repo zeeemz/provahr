@@ -1,0 +1,10 @@
+# Paths are relative to apps/api. Applies when the build context is apps/api;
+# with the repo-root context required by apps/api/Dockerfile, the Dockerfile's
+# explicit COPY paths already exclude everything below.
+node_modules
+dist
+.env
+.env.*
+tests
+coverage
+*.log

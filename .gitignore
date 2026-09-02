@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Prisma
+server/prisma/*.db
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc scratch
+*.tmp
+
+# Local tooling state (not project content)
+.mimosa/
+# Graphify code map (Graphify-Labs workflow: commit outputs, ignore cache)
+graphify-out/cache/
+graphify-out/cost.json
+graphify-out/.graphify_analysis.json
+

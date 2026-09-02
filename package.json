@@ -1,0 +1,22 @@
+{
+  "name": "provahr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProvaHR \u2014 the AI-native, open-source hiring platform. AI works for HR; candidates prove their skill. Apache-2.0.",
+  "license": "AGPL-3.0-only",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "npm run dev --workspace @provahr/api",
+    "setup": "bash scripts/install.sh",
+    "setup:seed": "bash scripts/install.sh --seed",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  }
+}
