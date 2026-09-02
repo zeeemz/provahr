@@ -2,8 +2,8 @@
   "name": "@provahr/mobile",
   "version": "0.1.0",
   "private": true,
-  "description": "ProvaHR candidate mobile app — React Native + Expo (browse, apply, consent, Swipe-MCQ test session with signal parity). PLAN.md Phase 6 / D13.",
-  "license": "Apache-2.0",
+  "description": "ProvaHR candidate mobile app \u2014 React Native + Expo (browse, apply, consent, Swipe-MCQ test session with signal parity). PLAN.md Phase 6 / D13.",
+  "license": "AGPL-3.0-only",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

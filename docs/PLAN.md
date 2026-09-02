@@ -455,7 +455,7 @@ Phases 1–3 are demoable standalone; 4–8 form the candidate loop (mobile in 6
 | D5 | Evaluation visibility | Candidate: submission status only. HR: full X-ray incl. code, runs, signals, AI verdicts |
 | D6 | Tenancy | Single company per install; admin connects own LLM incl. **own Azure OpenAI tenant**. *Superseded in part by D18 (2026-08-29): the install is a multi-company platform; the admin-owns-the-LLM aspect lives on per tenant (D20)* |
 | D7 | Stack | **TypeScript end-to-end** (Node API + worker, React web) |
-| D8 | License | **Apache-2.0** |
+| D8 | License | **AGPL-3.0-only** (founder switch from Apache-2.0, 2026-09-02: keeps SaaS forks open) |
 | D9 | LLM providers v1 | OpenAI-compatible + Anthropic + Azure OpenAI; one active; admin-configured |
 | D10 | Sandbox v1 | Docker per-run, pluggable executor interface. *Superseded in part by D21 (2026-08-31): per-company image templates are allowed; the hardening flags stay platform-fixed* |
 | D11 | Name | **ProvaHR** (locked 2026-08-28; no exact-match collisions found — formal domain/trademark clearance before public launch) |

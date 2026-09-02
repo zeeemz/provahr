@@ -1,169 +1,132 @@
 # ProvaHR
 
-**The AI-native, open-source hiring platform — now a multi-tenant SaaS. AI works for HR — candidates prove their skill.**
+**The AI-native, open-source hiring platform.**
+AI works for HR — candidates prove their skill. Hiring runs on proof, not polish.
 
-> ✅ **v2 complete** — the full candidate/HR loop runs (API + worker + web
-> portal + Expo mobile app, E2E-proven including a real sandboxed code
-> execution), and the install is now a **platform**: a super admin owns it,
-> companies (tenants) are created from the platform console, and each company
-> brings its own LLM keys, its own Keycloak realm and its own sandbox images
-> (decisions D18–D21). Remaining work is the tracked post-v2 backlog. Start
-> with [docs/BIBLE.md](docs/BIBLE.md) — the map of record — and the
-> [plan of record](docs/PLAN.md).
+> 🚀 **Watch the demo**: [`docs/assets/provehr-sales-pitch.mp4`](docs/assets/provehr-sales-pitch.mp4) — a 2-minute labeled walkthrough of the entire product.
 
-## What makes it different
+---
 
-- **AI-native loop** — describe a person (paste a LinkedIn screenshot or URL) and get
-  back a job description, a sealed skills test, and LLM-evaluated results. HR edits and
-  approves every step; AI never decides.
-- **Proof over polish** — candidates take real, sandbox-executed tests. Code
-  tasks run in hardened, per-run containers with hidden test cases — not take-home
-  essays anyone can delegate.
-- **Bulletproof question integrity** — HR designs the blueprint (skills, difficulty,
-  count); nobody, not even HR, can enumerate the questions. The pool is sealed
-  (encrypted, no API exposure), and every session gets a random draw with per-session
-  variants, so sharing answers is useless.
-- **Multi-tenant platform** — one self-hosted install hosts many companies
-  (Apache-2.0). Each tenant brings its own LLM keys (OpenAI-compatible,
-  Anthropic, or its own Azure OpenAI tenant), its own Keycloak realm for SSO,
-  and even its own sandbox images. Hiring data never leaves your
-  infrastructure, and tenants cannot see each other's.
+## What it does
 
-> **Fairness, built in.** AI flags suspicion but **never auto-rejects** — humans make
-> every decision. Proctoring scope is disclosed before every test. No webcam or screen
-> recording, ever. See [docs/PLAN.md §10](docs/PLAN.md).
+| For HR | For candidates | For the platform owner |
+|---|---|---|
+| Describe a person (LinkedIn screenshot, URLs, notes) → AI drafts the JD | Take a real, role-specific skill test — no fluff | Onboard companies (tenants) with their own admins |
+| Design a test blueprint; the platform seals a question pool **nobody can enumerate** — not even admins | Code answers execute in a hardened sandbox against hidden cases | Each tenant brings its own LLM keys (OpenAI / Anthropic / Azure / Ollama) |
+| See the **X-ray**: verdicts, sandbox runs, AI-likelihood flags, signals | See only *"Submitted ✓"* — no scores, no feedback, ever | Per-tenant Keycloak realms, sandbox image templates, team RBAC |
+| Reject with a mandatory reason — AI can **never** reject | Swipe-style judgments on mobile; standard questionnaire on web | Two-tier AI prompts: platform rules (root) + role-specific (HR) |
 
-## Repository structure
+## Demo videos
 
-```
-├── apps/
-│   ├── api/         # REST API + worker loop (Express + Prisma) — implemented
-│   │   ├── src/modules/platform/   # super-admin console: tenants, runtime settings
-│   │   ├── src/modules/admin/      # per-company: llm-providers, auth-config,
-│   │   │                           #   sandbox-templates
-│   │   └── src/worker.ts   # background jobs: JD generation, pool seal, evaluation
-│   ├── web/         # React portal (Vite) — platform console + HR console +
-│   │                #   candidate test UI, implemented
-│   ├── worker/      # placeholder — the worker ships inside apps/api today
-│   └── mobile/      # Expo candidate app (shipped: swipe deck, signal parity)
-├── packages/
-│   └── shared/      # cross-app TypeScript contracts
-├── docs/            # BIBLE.md (start here) + plan, API, data model, testing,
-│                    #   self-hosting, RBAC, documentation guides
-├── scripts/         # install.sh / install.cmd
-├── docker-compose.yml   # db + Keycloak + API + worker (both migrate-on-boot)
-├── LICENSE          # Apache-2.0
-└── NOTICE.md
-```
+- **[`docs/assets/provehr-sales-pitch.mp4`](docs/assets/provehr-sales-pitch.mp4)** — the full sales-pitch demo: 12 labeled chapters (platform setup, tenant onboarding, the AI loop, candidate experience, the X-ray, human pipeline).
+- **[`docs/assets/demo-two-tier-prompts.mp4`](docs/assets/demo-two-tier-prompts.mp4)** — the two-tier system-prompt feature in detail.
 
-## Quickstart (local dev)
+## UI / UX
 
-Prerequisites: **Node.js ≥ 20**, **PostgreSQL 16** (Docker recommended).
+### The platform (super admin)
+
+| | |
+|---|---|
+| ![Platform console](docs/assets/screenshots/f001.png) | ![Auth mode](docs/assets/screenshots/f006.png) |
+| *Super-admin console: tenants, sandbox templates, auth mode* | *Runtime auth switch — Local ↔ Keycloak, no restart; lockout-proof* |
+
+### The company admin (HR)
+
+| | |
+|---|---|
+| ![LLM providers](docs/assets/screenshots/f009.png) | ![AI prompts](docs/assets/screenshots/f013.png) |
+| *Per-tenant LLM providers — encrypted keys, one-click test* | *Two-tier prompts: platform rules (read-only) + role-specific (editable)* |
+
+### The AI loop
+
+| | |
+|---|---|
+| ![JD draft](docs/assets/screenshots/f017.png) | ![Sealed pool](docs/assets/screenshots/f020.png) |
+| *AI-drafted JD with both prompt tiers applied* | *Sealed question pool — ≥6× draw, encrypted, counts only* |
+
+### The candidate
+
+| | |
+|---|---|
+| ![One-time link](docs/assets/screenshots/f018.png) | ![Standard web questionnaire](docs/assets/screenshots/f022.png) |
+| *Apply → the one-time test link, shown exactly once* | *Standard web questionnaire — select-all checkboxes (swipe on mobile)* |
+
+| | |
+|---|---|
+| ![Code task](docs/assets/screenshots/f023.png) | ![Submitted](docs/assets/screenshots/f026.png) |
+| *Code task — executed in a hardened Docker sandbox after submission* | *"Submitted ✓" — the candidate sees nothing else, ever* |
+
+### The HR X-ray
+
+| | |
+|---|---|
+| ![X-ray](docs/assets/screenshots/f030.png) | ![Human pipeline](docs/assets/screenshots/f033.png) |
+| *Every answer, every sandbox run, every AI flag — for HR only* | *Humans decide — rejection always demands a reason* |
+
+---
+
+## Quickstart
+
+**Prerequisites:** Docker (Docker Desktop), Node.js ≥ 20.
 
 ```bash
-git clone https://github.com/YOUR_ORG/provahr.git
-cd provahr
-
-# 1. Start Postgres 16 (compose also offers Keycloak + the API itself)
-docker compose up -d db
-
-# 2. Install workspaces and prepare the database
-npm install                          # or: bash scripts/install.sh (does 2–4 for you)
-cd apps/api
-cp .env.example .env                 # point DATABASE_URL at your Postgres
-                                     #   (NOTE: .env is not auto-loaded — export
-                                     #   the vars or run compose; see docs/SELF_HOSTING.md)
-npx prisma generate
-npx prisma migrate deploy            # committed migrations 0001–0005
-npm run seed                         # demo company, jobs, applications
-
-# 3. Run the API  → http://localhost:4000
-npm run dev
-
-# 4. Run the web portal (new terminal) → http://localhost:5173
-cd ../web && npm run dev             # dev server proxies /api → :4000
-
-# 5. Optional: the background worker (new terminal) — JD drafts, pool
-#    sealing, evaluation. Without it, enqueued jobs simply wait.
-cd ../api && npm run dev:worker
+git clone <your-repo> provahr && cd provahr
+docker compose up -d          # db + keycloak + api + worker
 ```
 
-First boot on a fresh database: open `http://localhost:4000/setup` — the
-self-locking wizard creates the **platform super admin**, then locks itself.
-Sign in and create your first company (with its admin) from
-**Platform → Companies**. Per-company LLM keys, Keycloak realms and sandbox
-images are configured inside each tenant (Admin → Providers / Auth /
-Settings); the local ⇄ SSO switch is a runtime platform setting — no restarts.
+Then open **http://localhost:4000/setup** — the wizard creates your **super admin** (the platform owner). From the super-admin console at **http://localhost:5173**, create your first company.
 
-Seeded demo login (dev seed): `admin@acme.test` / `password123`.
+For the web portal (dev mode):
 
-Tests: `npm test` from the repo root (API suite: 483 unit/route tests + the
-CI-gated integration tier, 16 — 499 total).
+```bash
+npm install                   # workspaces
+npm run dev --workspace @provahr/web   # http://localhost:5173 (proxies /api → :4000)
+```
 
-## Documentation
+For local development without Docker, see [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 
-**Start here: [docs/BIBLE.md](docs/BIBLE.md)** — the single source of truth /
-map of record (product, architecture, data flow, sequence diagrams, security
-model, history, and where every kind of truth lives).
+## What's inside
 
-- [docs/BIBLE.md](docs/BIBLE.md) — **start here**; the map of record for the whole system
-- [docs/PLAN.md](docs/PLAN.md) — product plan of record + the D1–D21 decision log
-- [docs/API.md](docs/API.md) — endpoint reference (methods, roles, shapes, error codes)
-- [docs/DATA_MODEL.md](docs/DATA_MODEL.md) — the 24 Prisma models, field by field
-- [docs/TESTING.md](docs/TESTING.md) — test tiers + the never-regress list
-- [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) — multi-tenant operator guide: install env,
-      companies, per-tenant LLM providers / Keycloak / sandbox templates, proxy notes
-- [docs/RBAC.md](docs/RBAC.md) — super admin vs company roles, local vs Keycloak
-      (multi-issuer), role mapping, Azure AD brokering
-- [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) — the docs system itself
-- [PROGRESS.md](PROGRESS.md) — phase status, changelog, QA wave findings
+```
+apps/api/          REST API + worker (Express 4 · TypeScript · Prisma · PostgreSQL)
+apps/web/          HR console + public board + candidate test portal (React 18 · Vite)
+apps/mobile/       Candidate app (React Native + Expo — swipe gestures)
+packages/shared/   Cross-app TypeScript contracts
+deploy/keycloak/   Realm export (provahr) for SSO
+docs/              BIBLE (the map of record) · API · RBAC · SELF_HOSTING · DATA_MODEL · TESTING
+```
 
-## Roadmap
+## The product's laws
 
-Details in [docs/PLAN.md §11](docs/PLAN.md) + [§12.1](docs/PLAN.md) (v2);
-status tracker in [PROGRESS.md](PROGRESS.md).
-
-- [x] **Phase 0** — monorepo, Apache-2.0, plan sign-off
-- [x] **Phase 1** — LLM provider abstraction + admin CRUD + connectivity test
-- [x] **Phase 2** — role intake → JD generation (screenshot + URL + LLM) with HR edit loop
-- [x] **Phase 3** — blueprint editor + sample preview + sealed pool generation (+ re-seal)
-- [x] **Phase 4** — public job board, apply flow, one-time test links
-- [x] **Phase 5** — candidate test portal (web): consent, draw + variants, Swipe-MCQ
-      and other formats, review pass, hard clock, signal capture
-- [x] **Phase 7** — sandbox executor (Docker) + hidden test cases + execution results
-- [x] **Phase 8** — LLM evaluation pipeline (verdicts, AI-likelihood, collusion) + HR
-      X-ray + void-with-renormalization
-- [x] **Phase 9 (rules)** — pipeline stage vocabulary for the AI loop
-      (`Applied → Test → Review → Interview → Offer → Hired`, rules-level pending
-      the Stage enum migration)
-- [x] **Phase 6 / 9b** — Expo mobile app: browse, apply, consent, swipe-gesture
-      sessions, signal parity (`tsc`-gated; device-run pending an emulator)
-- [x] **Live sandbox verification** — E2E run executed a candidate BASH answer in a
-      real hardened container (both hidden cases passed)
-- [x] **V2-1** — multi-tenant core: SUPER_ADMIN, runtime platform settings,
-      company CRUD, wizard v3 (super admin only)
-- [x] **V2-2** — company-scoped LLM providers (per-company single-active index)
-- [x] **V2-3** — runtime per-company Keycloak: multi-issuer resolution, portal
-      switch, super-admin lockout carve-out
-- [x] **V2-4** — company sandbox image templates (parameterized exact-prefix
-      hardening)
-- [x] **V2-5** — docs reconciled to the platform model
-- [ ] **Post-v2 residue** — hardening backlog: CI has never run (no remote),
-      automated E2E tier, shared rate-limiter store across API+worker,
-      per-session **data variants** (v1 variants reorder options only),
-      Stage enum migration (TEST/REVIEW), docker socket-mount isolation per
-      tenant, retention jobs
-
-## Contributing
-
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). All participants
-follow the [Code of Conduct](CODE_OF_CONDUCT.md).
-
-## Security
-
-Found a vulnerability? Follow the private disclosure process in
-[SECURITY.md](SECURITY.md) — do not open a public issue.
+1. **AI flags, humans decide.** No automated rejection exists anywhere in the codebase.
+2. **The pool is sealed.** Question items are encrypted at rest and readable by no user — not even admins.
+3. **The clock never pauses.** A test session is one sitting; the deadline is set at start and never extended.
+4. **The candidate sees nothing.** No scores, no feedback, no verdicts — only "Submitted."
+5. **Open source, self-hosted.** Your data, your infrastructure, your rules.
 
 ## License
 
-[Apache-2.0](LICENSE) © 2026 The ProvaHR Authors — see also [NOTICE.md](NOTICE.md).
+**AGPL-3.0-only** — see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
+
+> ⚠️ **What AGPL means for you:** if you run a modified version of ProvaHR as a network service (SaaS), you must offer the source code of your modifications to its users. This keeps the platform — and any improvements to it — open for everyone. For internal/self-hosted use without modification, the license imposes no obligations beyond keeping the notice.
+
+## Documentation
+
+| Doc | Purpose |
+|---|---|
+| [docs/BIBLE.md](docs/BIBLE.md) | **The map of record** — architecture, data flow, sequence diagrams, security model |
+| [docs/API.md](docs/API.md) | Full endpoint reference (all routes, roles, shapes) |
+| [docs/RBAC.md](docs/RBAC.md) | Identity: local, Keycloak, multi-issuer, per-company realms |
+| [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) | Install, configure, operate (multi-tenant operator guide) |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | All 24 entities and their relationships |
+| [docs/TESTING.md](docs/TESTING.md) | Test strategy, tiers, never-regress list |
+| [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md) | Founder demo walkthrough (~10 min) |
+| [PROGRESS.md](PROGRESS.md) | Living tracker: phases, waves, QA history, backlog |
+
+## Status
+
+- **v1 (single-tenant MVP)** — complete, live-verified end-to-end.
+- **v2 (SaaS multi-tenant platform)** — complete: super admin, company onboarding, per-tenant providers/keycloak/sandbox-templates, two-tier prompts.
+- **525 tests** green (509 unit + 16 CI-gated integration).
+
+Post-v2 backlog (tracked in PROGRESS.md): automated Playwright E2E tier, Stage-enum migration, shared rate-limiter store, data-level question variants, docker-socket isolation for multi-tenant sandboxing.

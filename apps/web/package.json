@@ -2,8 +2,8 @@
   "name": "@provahr/web",
   "version": "0.1.0",
   "private": true,
-  "description": "ProvaHR web frontend — HR console, public board, candidate test portal.",
-  "license": "Apache-2.0",
+  "description": "ProvaHR web frontend \u2014 HR console, public board, candidate test portal.",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",

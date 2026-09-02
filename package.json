@@ -2,8 +2,8 @@
   "name": "provahr",
   "version": "0.1.0",
   "private": true,
-  "description": "ProvaHR — the AI-native, open-source hiring platform. AI works for HR; candidates prove their skill. Apache-2.0.",
-  "license": "Apache-2.0",
+  "description": "ProvaHR \u2014 the AI-native, open-source hiring platform. AI works for HR; candidates prove their skill. Apache-2.0.",
+  "license": "AGPL-3.0-only",
   "workspaces": [
     "apps/*",
     "packages/*"

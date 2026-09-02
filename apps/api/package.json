@@ -2,8 +2,8 @@
   "name": "@provahr/api",
   "version": "0.1.0",
   "private": true,
-  "description": "ProvaHR REST API — hiring platform tracking spine (auth, roles, pipeline, interviews, scorecards)",
-  "license": "Apache-2.0",
+  "description": "ProvaHR REST API \u2014 hiring platform tracking spine (auth, roles, pipeline, interviews, scorecards)",
+  "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=20"
   },
