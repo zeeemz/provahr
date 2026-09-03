@@ -4,6 +4,7 @@ import { createApp } from '../src/app';
 import { toRedactedProvider } from '../src/modules/admin/llm-providers.service';
 import { encryptSecret } from '../src/lib/crypto';
 import { signToken } from '../src/lib/token';
+import { UNAUTH_TEST_KEY, REDACTION_TEST_KEY } from './fixtures/credentials';
 
 // No database is reachable in unit tests, so these cover the auth gate
 // (which runs before any Prisma call), the pure redaction helper, and — since
@@ -78,7 +79,7 @@ describe('admin llm-providers auth gate', () => {
   it('rejects POST /api/admin/llm-providers without a token', async () => {
     const res = await request(app).post('/api/admin/llm-providers').send({
       kind: 'ANTHROPIC',
-      apiKey: 'TESTKEY_unauth',
+      apiKey: UNAUTH_TEST_KEY,
       textModel: 'claude-sonnet-4-20250514',
     });
     expect(res.status).toBe(401);
@@ -295,7 +296,7 @@ describe('PUT /api/admin/sandbox-templates (company admin)', () => {
 });
 
 describe('toRedactedProvider', () => {
-  const apiKey = 'TESTKEY_redaction_7799';
+  const apiKey = REDACTION_TEST_KEY;
 
   const redacted = toRedactedProvider({
     id: 'provider-1',

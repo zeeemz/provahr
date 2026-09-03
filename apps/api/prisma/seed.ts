@@ -12,7 +12,8 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const DEMO_PASSWORD = 'password123';
+// Demo seed password — override with SEED_PASSWORD for non-demo installs.
+const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? 'demo-password-123';
 
 function daysAgo(days: number): Date {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);

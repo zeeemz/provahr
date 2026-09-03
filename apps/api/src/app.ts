@@ -22,7 +22,12 @@ export function createApp() {
   app.use(helmet());
 
   const origins = env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
-  app.use(cors({ origin: origins[0] === '*' ? true : origins }));
+  app.use(cors({
+    // Explicit origin allow-list from CORS_ORIGIN env; '*' is opt-in only.
+    origin: origins[0] === '*' ? true : origins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
 
   // 1mb default; the intake route carries base64 screenshots and gets its own
   // larger parser in the jobs router (QA wave-3 F2) — `type` decides whether
