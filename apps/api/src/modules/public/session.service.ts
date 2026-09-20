@@ -20,6 +20,12 @@
 // submit which accepts a 60s late arrival for the auto-submit race. No
 // worker: expiry checks are inline (lazy); an ISSUED link past its TTL is
 // flipped to EXPIRED on first touch.
+//
+// FOUNDER AMENDMENT (2026-09-21): at submit the candidate now ALSO receives
+// immediate deterministic marking for the objective formats (MCQ/SWIPE_MCQ —
+// marking.service, pool decryption site #3). Open formats (WRITTEN/CODE)
+// remain opaque pending evaluation; the discipline above is unchanged for
+// everything pre-submit.
 
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -36,6 +42,7 @@ import {
 } from '../../lib/assessment/item';
 import { drawSession, realizeVariant, seededRng, type PresentedQuestion } from '../../lib/session/draw';
 import { deadlineFor, isExpired, withinSubmitGrace } from '../../lib/session/clock';
+import { objectiveMarking, type MarkingView } from './marking.service';
 import type { SignalsInput } from './session.schema';
 
 /** Hard cap on stored proctoring signals per session — excess is dropped. */
@@ -460,7 +467,7 @@ export async function recordSignals(token: string, signals: SignalInput[]): Prom
  * Asymmetry (never-regress #6): the candidate response is { submitted: true }
  * and NOTHING else — no score, no verdicts, no feedback, ever.
  */
-export async function submitSession(token: string): Promise<{ submitted: boolean }> {
+export async function submitSession(token: string): Promise<{ submitted: boolean; marking?: MarkingView }> {
   const { session, deadlineAt } = await findLiveStartedSession(token);
   if (!withinSubmitGrace(deadlineAt, new Date())) {
     throw new AppError(409, 'Session time is up — the clock never pauses', 'SESSION_EXPIRED');
@@ -475,5 +482,15 @@ export async function submitSession(token: string): Promise<{ submitted: boolean
   await enqueue('EVALUATION', { sessionId: session.id }).catch((err: unknown) => {
     console.error(`[session] failed to enqueue evaluation for ${session.id}: ${String(err)}`);
   });
-  return { submitted: true };
+  // Immediate objective marking (founder decision 2026-09-21): MCQ/SWIPE_MCQ
+  // outcomes ride the submit response; open formats stay pending evaluation.
+  // Best-effort at this instant — a transient pool state (mid-reseal) omits
+  // it and GET /test/:token/marking serves it right after.
+  let marking: MarkingView | undefined;
+  try {
+    marking = await objectiveMarking(token);
+  } catch (err) {
+    console.error(`[session] immediate marking unavailable for ${session.id}: ${String(err)}`);
+  }
+  return { submitted: true, ...(marking !== undefined ? { marking } : {}) };
 }

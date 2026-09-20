@@ -117,6 +117,9 @@ describe('GET /api/public/test/:token — consent-screen meta (never items, neve
       jobTitle: 'Senior Payments Engineer',
       timeLimitMin: 45,
       alreadyUsed: false,
+      // Walk-in surface (2026-09-20): false for normal self-serve links, and
+      // no `candidate` block — identity ships only with walk-in links.
+      walkIn: false,
     });
     // No hash ever leaves the system — only the DB-side sha256 exists, and
     // it must not appear anywhere in the response.

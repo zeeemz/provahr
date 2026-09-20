@@ -28,7 +28,7 @@
 >    CI-gated = 499**, re-verified 2026-08-31 during V2-5).
 
 > **Living document — updated after every work session.**
-> Last updated: 2026-08-31 · Maintained by: main harness agent
+> Last updated: 2026-09-21 (candidate test profile + immediate MCQ marking + re-appearance pin; 536 passed + 17 CI-gated) · Maintained by: main harness agent
 
 | | |
 |---|---|
@@ -350,6 +350,101 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-09-21 (candidate test profile + immediate MCQ marking + re-appearance
+  pin)** — Founder goal, three parts, no schema migration. **(1) Candidate
+  test profile**: new `GET /api/candidates/:candidateId/profile`
+  (`modules/candidates/`, ADMIN/RECRUITER, company-scoped with the uniform
+  404) aggregates one person's story across this company's roles from
+  existing evidence (Application + TestSession + SessionAssessment +
+  non-voided Evaluations): applications/tests-taken/average, per-format
+  correct/partial/incorrect tallies, AI-flag counts, per-role history with
+  each test's score/strengths/gaps. Computed on read — appears the moment a
+  test completes, stays consistent with voids/renormalization, no shadow
+  table. Web: `/app/candidates/:id` page, linked from every Pipeline row
+  ("test profile →") and the application detail header. **(2) Immediate
+  objective marking** (founder amendment to the §4-step-7 asymmetry,
+  documented in TESTING.md §6 #6 and the session/evaluation headers): new
+  `modules/public/marking.service.ts` (POOL DECRYPTION SITE #3 — reuses the
+  shared `loadActivePoolItems`) marks MCQ (all-or-nothing, correct option
+  shown) and SWIPE_MCQ (partial credit) deterministically at submit; open
+  formats (WRITTEN/CODE) stay "awaiting evaluation"; voided → NOT_COUNTED,
+  pool-drift → never marked wrong (same fairness policies as the evaluation
+  run). Submit response carries `marking` (best-effort — omitted mid-reseal),
+  `GET /api/public/test/:token/marking` serves it afterwards; TestFlow's
+  submitted/re-entry screens render a per-question results table ("X of Y
+  correct · Z partial · N awaiting evaluation"). **(3) Re-appearance**:
+  verified + pinned by test — a candidate REJECTED on one role applies
+  cleanly to any other (the only duplicate check is per-job); the profile
+  makes the history visible instead of blocking anything. Gates: api `tsc` +
+  vitest **536 passed + 17 CI-gated** (+12: marking matrix incl. voided/
+  drift/uniform-404/submit-rides, profile aggregation + guards, re-appearance
+  pin; the old "EXACTLY {submitted:true}" pin updated to the amended
+  contract), web `tsc`; containers rebuilt; mounted-route smoke green
+  (profile 401 unauthenticated, marking uniform 404). Docs: **API.md**
+  (submit + marking + candidates routes), **TESTING.md** §6 #6 amendment.
+  *(main)*
+- **2026-09-20 (walk-in test flow — HR-facilitated, on-site candidates)**
+  — Founder flow requirement: a candidate arrives at the office, HR creates
+  the application and the test runs on the spot ("HR fills candidate details,
+  then candidate fills in details"). Shipped as a two-sided feature on top of
+  the existing one-time-link machinery, no schema migration: **HR side** —
+  `POST /api/jobs/:jobId/walkin` (ADMIN/RECRUITER; `walkInApply` in
+  applications.service, company-scoped, OPEN jobs only) creates the
+  application with `source: WALK_IN`, credits the HR user on the APPLIED
+  stage event (audit trail), and mints the same one-time link as public apply
+  (shared `upsertCandidateAndApply` core — extracted from `applyToJob` so both
+  flows keep identical 409-before-mint duplicate semantics, never-regress #3;
+  `TEST_LINK_TTL_MS` moved to lib/testTokens); web Pipeline gets a
+  "+ Walk-in candidate" form (recruiter+) with an "Open the test now →"
+  handoff + copy-link + NO_POOL notice. **Candidate side** — `GET
+  /api/public/test/:token` now reports `walkIn` + the HR-entered identity
+  (walk-in links only), a new `POST .../details` endpoint (token-gated,
+  uniform 404, hash-only; ISSUED-only — **409 `DETAILS_LOCKED`** once the
+  clock starts) lets the candidate complete phone/resume/LinkedIn/GitHub/cover
+  letter pre-consent, and TestFlow grows a details step (everything optional,
+  name/email shown read-only as HR entered them). Gates: api `tsc` + vitest
+  **524 passed + 17 CI-gated** (+10 walk-in tests: sourcing/audit/mint/NO_POOL/
+  ALREADY_APPLIED/uniform-404/DETAILS_LOCKED; apply-routes exact-shape updated
+  for `walkIn: false`), web `tsc`; containers rebuilt, mounted-route smoke
+  tests green (401 walkin unauthenticated, uniform 404 details). Docs:
+  **API.md** (walkin + details routes, GET /test/:token fields). *(main)*
+- **2026-09-20 (live fix — pool sealing timed out against a real provider;
+  + in-app Activity feed)** — Founder demo prep surfaced it end-to-end:
+  "Generate & seal pool" clicked, nothing visibly happened. Root cause chain,
+  verified against the live stack: (1) every click DID enqueue (18 `POOL_SEAL`
+  rows queued) but each worker LLM batch (10 items / 8k tokens) exceeded the
+  fixed 60s `postJson` ceiling and died as `LLM provider unreachable`
+  (misleading label for any network/timeout failure), while 1-item sample
+  calls fit under it — so the pool never sealed; (2) the worker ground through
+  doomed 60s timeouts across queue retries with zero UI signal (`PoolStep`
+  polled silently, no error surface). Fixes, all gates green (api `tsc` +
+  vitest, web `tsc`): `LLM_TIMEOUT_MS` env knob (1s–10min, default 60s —
+  existing installs keep behavior; compose ships 300000) wired as the
+  `postJson` default (`env.ts`, `lib/llm/http.ts`); `POOL_BATCH_SIZE` 10→4
+  with `POOL_BATCH_MAX_TOKENS` 8000→4000 so one call lands inside the default
+  ceiling (`modules/jobs/blueprint.service.ts`); one-seal-at-a-time guard —
+  `sealPool`/`resealPool` 409 `SEAL_IN_PROGRESS` while a `POOL_SEAL` row for
+  the job is PENDING/RUNNING (`payload->>'jobId'` jsonb filter, self-clearing);
+  `GET /pool` now also reports `sealingInProgress` + `lastSealError` (queue
+  status/error text only — the invisibility matrix holds, integration test
+  extended + new `SEAL_IN_PROGRESS` case); web `PoolStep` shows live
+  "Sealing in progress…", disables the button while sealing, and surfaces the
+  last failure. Ops: 17 duplicate queue rows deleted, images rebuilt, stale
+  RUNNING row recovered by `requeueStale` and re-run under the new settings —
+  **sealed live against z.ai glm-5.3: 84 items, 29 LLM calls, 18 min, job
+  DONE on attempt 2.** Docs: **API.md** (pool routes), **SELF_HOSTING.md**
+  (env table +`LLM_TIMEOUT_MS`).
+  Follow-up shipped same session (founder ask: "logs in ProvaHR to keep tabs
+  on status"): **Activity feed** — `GET /api/activity?limit=` (ADMIN,
+  RECRUITER; `modules/activity/`) turns `job_queue` into a company-scoped
+  newest-first feed via one raw-SQL join (payload `jobId` direct, EVALUATION
+  resolved session→application→job; queue metadata only, so the pool-item
+  invisibility invariant holds by construction) and the web `/app/activity`
+  page (nav "Activity") renders it with 3s auto-refresh, status chips, retry
+  counts and last-error text. Unit-tier route-guard tests
+  (`activity-routes.test.ts`, prisma mocked per the blueprint-routes seam);
+  feed SQL verified against the live DB. Suite now **514 passed + 17
+  CI-gated**. *(main)*
 - **2026-08-31 (V2-5 CLOSED — v2 complete: docs reconciled to the platform
   model)** — Every doc now tells the SaaS-multi-tenant story truthfully,
   verified against code: **BIBLE.md** (D18–D21 in the decision list; §2

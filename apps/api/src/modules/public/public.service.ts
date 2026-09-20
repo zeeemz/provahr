@@ -1,14 +1,16 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../prisma';
 import { AppError } from '../../lib/http';
-import { generateTestToken, hashTestToken, isTokenShapeValid } from '../../lib/testTokens';
+import {
+  generateTestToken,
+  hashTestToken,
+  isTokenShapeValid,
+  TEST_LINK_TTL_MS,
+} from '../../lib/testTokens';
 import { applyToJob } from '../applications/applications.service';
-import type { ApplyInput } from '../applications/applications.schema';
+import type { ApplyInput, WalkInDetailsInput } from '../applications/applications.schema';
 import type { z } from 'zod';
 import type { publicJobsQuerySchema } from './public.schema';
-
-/** Test links stay valid for two weeks, then the session is dead (Phase 5 worker flips status to EXPIRED). */
-const TEST_LINK_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** Fields exposed on the public board — never internal notes or counts. */
 const publicJobSelect = {
@@ -124,6 +126,17 @@ export interface TestLinkInfo {
   jobTitle: string;
   timeLimitMin: number | null;
   alreadyUsed: boolean;
+  /** Walk-in sessions (HR-created): the candidate completes their details before consent. */
+  walkIn: boolean;
+  /** Present only for walk-ins — the HR-entered identity, shown read-only + prefills. */
+  candidate?: {
+    name: string;
+    email: string;
+    phone: string | null;
+    resumeUrl: string | null;
+    linkedinUrl: string | null;
+    githubUrl: string | null;
+  };
 }
 
 /**
@@ -147,6 +160,15 @@ export async function getTestLinkInfo(token: string): Promise<TestLinkInfo> {
       job: {
         select: { title: true, blueprint: { select: { timeLimitMin: true } } },
       },
+      // Walk-in detection + the HR-entered identity for the details step.
+      application: {
+        select: {
+          source: true,
+          candidate: {
+            select: { name: true, email: true, phone: true, resumeUrl: true, linkedinUrl: true, githubUrl: true },
+          },
+        },
+      },
     },
   });
   if (!session) {
@@ -154,11 +176,63 @@ export async function getTestLinkInfo(token: string): Promise<TestLinkInfo> {
   }
 
   const expired = session.expiresAt.getTime() <= Date.now();
+  const walkIn = session.application?.source === 'WALK_IN';
   return {
     status: expired ? 'EXPIRED' : session.status,
     expiresAt: session.expiresAt,
     jobTitle: session.job.title,
     timeLimitMin: session.job.blueprint?.timeLimitMin ?? null,
     alreadyUsed: session.status === 'STARTED' || session.status === 'SUBMITTED',
+    walkIn,
+    ...(walkIn && session.application
+      ? { candidate: { name: session.application.candidate.name, email: session.application.candidate.email, phone: session.application.candidate.phone, resumeUrl: session.application.candidate.resumeUrl, linkedinUrl: session.application.candidate.linkedinUrl, githubUrl: session.application.candidate.githubUrl } }
+      : {}),
   };
+}
+
+/**
+ * The candidate-side half of the walk-in flow: before starting the test, the
+ * candidate completes the details HR could not know (links, cover letter,
+ * phone correction). Token-gated exactly like every other session endpoint —
+ * uniform 404, hash-only lookup — and only while the session is still PENDING
+ * (once the clock starts, identity is locked).
+ */
+export async function saveWalkInDetails(token: string, input: WalkInDetailsInput): Promise<void> {
+  if (!isTokenShapeValid(token)) {
+    throw new AppError(404, 'Test link not found', 'NOT_FOUND');
+  }
+  const session = await prisma.testSession.findUnique({
+    where: { tokenHash: hashTestToken(token) },
+    select: {
+      status: true,
+      applicationId: true,
+      application: { select: { source: true, candidateId: true } },
+    },
+  });
+  if (!session || session.application?.source !== 'WALK_IN') {
+    // Uniform 404: unknown token and non-walk-in token answer identically.
+    throw new AppError(404, 'Test link not found', 'NOT_FOUND');
+  }
+  if (session.status !== 'ISSUED') {
+    throw new AppError(409, 'Details can only be completed before the test starts', 'DETAILS_LOCKED');
+  }
+
+  // Only provided fields are written — the candidate may skip any of them.
+  const candidate: Record<string, string> = {};
+  if (input.phone !== undefined) candidate.phone = input.phone;
+  if (input.resumeUrl !== undefined) candidate.resumeUrl = input.resumeUrl;
+  if (input.linkedinUrl !== undefined) candidate.linkedinUrl = input.linkedinUrl;
+  if (input.githubUrl !== undefined) candidate.githubUrl = input.githubUrl;
+  if (Object.keys(candidate).length > 0) {
+    await prisma.candidate.update({
+      where: { id: session.application.candidateId },
+      data: candidate,
+    });
+  }
+  if (input.coverLetter !== undefined) {
+    await prisma.application.update({
+      where: { id: session.applicationId },
+      data: { coverLetter: input.coverLetter },
+    });
+  }
 }

@@ -172,12 +172,68 @@ describe.skipIf(!enabled)('sealed-pool invisibility matrix (T2/T3)', () => {
     });
   });
 
-  it('GET pool returns exactly the four public fields', async () => {
+  it('GET pool returns exactly the six public fields', async () => {
     const res = await request(app).get(`/api/jobs/${jobId}/pool`).set(auth());
     expect(res.status).toBe(200);
-    expect(Object.keys(res.body.pool).sort()).toEqual(['hasActivePool', 'itemCount', 'sealedAt', 'version']);
+    expect(Object.keys(res.body.pool).sort()).toEqual([
+      'hasActivePool',
+      'itemCount',
+      'lastSealError',
+      'sealedAt',
+      'sealingInProgress',
+      'version',
+    ]);
     expect(res.body.pool.itemCount).toBe(1);
     expect(res.body.pool.hasActivePool).toBe(true);
+    expect(res.body.pool.sealingInProgress).toBe(false); // no queue row for this job
+    expect(res.body.pool.lastSealError).toBeNull();
+  });
+
+  it('refuses a second concurrent seal (SEAL_IN_PROGRESS) instead of queueing a duplicate', async () => {
+    // Separate job without a pool; a PENDING queue row stands in for the
+    // in-flight generation (live finding 2026-09-20: repeated clicks queued
+    // 18 seals that ground the single-threaded worker for minutes each).
+    const job2 = await prisma.job.create({
+      data: {
+        companyId,
+        title: 'Leak Matrix Seal Guard Role',
+        department: 'QA',
+        roleFamily: 'ENGINEERING',
+        location: 'Remote',
+        description: 'A role that exists to prove one seal runs at a time.'.padEnd(60, '.'),
+        status: 'DRAFT',
+        jdStatus: 'JD_APPROVED',
+      },
+    });
+    try {
+      await prisma.testBlueprint.create({
+        data: { jobId: job2.id, sections: [{ topics: ['bash'], formats: { MCQ: 1 } }], timeLimitMin: 30 },
+      });
+      await prisma.jobQueue.create({
+        data: {
+          type: 'POOL_SEAL',
+          payload: { jobId: job2.id, reseal: false },
+          status: 'PENDING',
+          runAt: new Date(),
+        },
+      });
+
+      const seal = await request(app).post(`/api/jobs/${job2.id}/pool/seal`).set(auth()).send('{}');
+      expect(seal.status).toBe(409);
+      expect(seal.body.error.code).toBe('SEAL_IN_PROGRESS');
+
+      const reseal = await request(app).post(`/api/jobs/${job2.id}/pool/reseal`).set(auth()).send('{}');
+      expect(reseal.status).toBe(409);
+      expect(reseal.body.error.code).toBe('SEAL_IN_PROGRESS');
+
+      // The status endpoint reports the generation as in-flight.
+      const status = await request(app).get(`/api/jobs/${job2.id}/pool`).set(auth());
+      expect(status.status).toBe(200);
+      expect(status.body.pool.sealingInProgress).toBe(true);
+    } finally {
+      await prisma.jobQueue.deleteMany({ where: { payload: { path: ['jobId'], equals: job2.id } } });
+      await prisma.job.delete({ where: { id: job2.id } }).catch(() => undefined);
+    }
   });
 
   it('GET samples shows preview items by design (sample canary visible, pool canary never)', async () => {

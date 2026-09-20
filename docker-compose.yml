@@ -62,6 +62,9 @@ services:
       SECRETS_KEY: dev-compose-secrets-key-change-me-too
       OIDC_ENABLED: "false"
       CORS_ORIGIN: http://localhost:5173,http://localhost:8080
+      # Real providers can take minutes on large pool batches; the 60s default
+      # killed every seal attempt in live use (2026-09-20).
+      LLM_TIMEOUT_MS: "300000"
       NODE_ENV: production
       PORT: "4000"
     # The prisma CLI is baked into the image (see apps/api/Dockerfile), so npx
@@ -92,6 +95,7 @@ services:
       JWT_SECRET: dev-only-change-me-jwt-secret-32-chars
       SECRETS_KEY: dev-compose-secrets-key-change-me-too
       OIDC_ENABLED: "false"
+      LLM_TIMEOUT_MS: "300000"
       NODE_ENV: production
     # Migrations are idempotent; the worker ALSO applies them so a fresh
     # volume can never race the API's boot-time migrate (E2E catch: worker

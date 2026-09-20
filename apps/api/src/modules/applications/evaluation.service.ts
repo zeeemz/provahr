@@ -1,8 +1,11 @@
 // LLM evaluation pipeline + HR X-ray + void-with-renormalization
 // (PLAN.md Phase 8, §4 loop step 6, §5.2 #7, §8, §9, §12 D2/D5).
 //
-// THE ASYMMETRIC OUTCOME (PLAN §4 step 7): the candidate saw "submitted ✓" and
-// nothing else; everything below is HR-ONLY. No function here is reachable
+// THE ASYMMETRIC OUTCOME (PLAN §4 step 7), amended by founder decision
+// 2026-09-21: at submit the candidate now ALSO sees immediate deterministic
+// marking for the objective formats (MCQ/SWIPE_MCQ — modules/public/
+// marking.service); prose and code stay opaque to them, and everything in
+// this module remains HR-ONLY. No function here is reachable
 // from a public/candidate route, and nothing here ever writes Application
 // status — FLAG, NEVER AUTO-REJECT is the law (PLAN §2.1, docs/TESTING.md §6
 // #1): AI output (verdicts, aiLikelihood, collusion) is evidence for a human.
@@ -12,7 +15,8 @@
 // exactly ONCE per evaluation run — worker-side, AFTER the session is
 // SUBMITTED — to recover the truth data (truth flags, correctOptionId,
 // rubrics, hidden cases) needed to score. HR never sees the pool through this
-// path; the X-ray returns only per-session derived evidence.
+// path; the X-ray returns only per-session derived evidence. (Site #3 is the
+// candidate-facing marking service — objective truth only.)
 //
 // V1 POOL-DRIFT POLICY (fairness, PLAN §5.2 #7 spirit): if a session's
 // itemIds are no longer in the active pool (the pool was re-sealed after the
@@ -153,8 +157,8 @@ async function loadTemplateImages(companyId: string): Promise<ImageOverrides | u
   }
 }
 
-/** Loads, decrypts and revalidates the active pool ONCE per run (site #2). */
-async function loadActivePoolItems(jobId: string): Promise<Map<string, AssessmentItem>> {
+/** Loads, decrypts and revalidates the active pool ONCE per run (sites #2/#3). */
+export async function loadActivePoolItems(jobId: string): Promise<Map<string, AssessmentItem>> {
   const pool = await prisma.sealedQuestionPool.findFirst({
     where: { jobId, isActive: true },
     orderBy: { sealedAt: 'desc' }, // deterministic under the documented isActive race

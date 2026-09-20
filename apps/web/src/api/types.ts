@@ -108,6 +108,80 @@ export interface TestLinkInfo {
   jobTitle: string;
   timeLimitMin: number | null;
   alreadyUsed: boolean;
+  /** Walk-in session (HR-created): the candidate completes details before consent. */
+  walkIn: boolean;
+  /** Walk-in only: HR-entered identity, shown read-only + prefilled details. */
+  candidate?: {
+    name: string;
+    email: string;
+    phone: string | null;
+    resumeUrl: string | null;
+    linkedinUrl: string | null;
+    githubUrl: string | null;
+  };
+}
+
+// ─── HR walk-in flow (POST /api/jobs/:jobId/walkin) ───────────────────────────
+
+export interface WalkInResponse {
+  application: { id: string; jobId: string; createdAt: string };
+  testLink: { token: string; expiresAt: string } | null;
+  testLinkReason?: 'NO_POOL';
+}
+
+// ─── Candidate test profile (modules/candidates) ──────────────────────────────
+
+export interface CandidateProfileView {
+  candidate: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    resumeUrl: string | null;
+    linkedinUrl: string | null;
+    githubUrl: string | null;
+    createdAt: string;
+  };
+  summary: {
+    applications: number;
+    testsTaken: number;
+    averageScore: number | null;
+    byFormat: Record<string, { CORRECT: number; PARTIAL: number; INCORRECT: number }>;
+    flags: { high: number; medium: number };
+  };
+  history: Array<{
+    applicationId: string;
+    jobId: string;
+    jobTitle: string;
+    stage: string;
+    status: string;
+    source: string | null;
+    appliedAt: string;
+    session: {
+      status: string;
+      submittedAt: string | null;
+      score: number | null;
+      strengths: string | null;
+      gaps: string | null;
+    } | null;
+  }>;
+}
+
+// ─── Immediate post-submit marking (modules/public/marking.service) ───────────
+
+export interface MarkedItem {
+  order: number;
+  format: string;
+  status: 'MARKED' | 'PENDING_EVALUATION' | 'NOT_COUNTED';
+  correct?: boolean;
+  score?: number;
+  selectedOptionId?: string | null;
+  correctOptionId?: string | null;
+}
+
+export interface MarkingView {
+  items: MarkedItem[];
+  summary: { marked: number; correct: number; partial: number };
 }
 
 // ─── Candidate test session (modules/public/session.service) ─────────────────
@@ -267,7 +341,29 @@ export interface PoolStatusView {
     version: number | null;
     itemCount: number;
     sealedAt: string | null;
+    sealingInProgress: boolean;
+    lastSealError: string | null;
   };
+}
+
+// ─── Background activity feed (modules/activity) ──────────────────────────────
+
+/** One background-work event: a job_queue row resolved to its role. */
+export interface ActivityEvent {
+  id: string;
+  type: 'JD_GENERATION' | 'SAMPLES_GENERATION' | 'POOL_SEAL' | 'EVALUATION';
+  status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+  attempts: number;
+  maxAttempts: number;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+  jobId: string | null;
+  jobTitle: string | null;
+}
+
+export interface ActivityView {
+  events: ActivityEvent[];
 }
 
 /** Sample preview items (visible to HR by design; never drawn into sessions). */

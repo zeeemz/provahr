@@ -15,6 +15,9 @@ import { createHash, randomBytes } from 'node:crypto';
 /** base64url of 32 bytes with padding stripped — always 43 chars. */
 export const TEST_TOKEN_LENGTH = 43;
 
+/** How long a minted link stays valid if never started (the worker flips it to EXPIRED after). */
+export const TEST_LINK_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
 const BASE64URL_RE = /^[A-Za-z0-9_-]+$/;
 
 /**

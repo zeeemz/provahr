@@ -42,8 +42,13 @@ import type { PutBlueprintInput } from './blueprint.schema';
 
 const SAMPLES_TARGET = 3; // preview items per request (PLAN §5.1: "3–5 examples")
 const SAMPLES_MAX_TOKENS = 3_000;
-const POOL_BATCH_SIZE = 10; // max items requested per LLM call
-const POOL_BATCH_MAX_TOKENS = 8_000; // 10 rich items (CODE carries hidden cases)
+// Batch size bounded so ONE provider call can finish inside the default
+// LLM_TIMEOUT_MS even on slow models: 10-item/8k-token batches against a real
+// provider exceeded the old fixed 60s ceiling every time (live finding
+// 2026-09-20 — "seal clicked, nothing happened"). Smaller batches = more
+// calls, but each one lands.
+const POOL_BATCH_SIZE = 4; // max items requested per LLM call
+const POOL_BATCH_MAX_TOKENS = 4_000; // 4 rich items (CODE carries hidden cases)
 const POOL_OVERSHOOT = 2; // stop prompting a format at 2× its required size
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -102,6 +107,38 @@ function activePoolFor(jobId: string) {
 
 function formatSummary(counts: Record<QuestionFormat, number>): string {
   return QUESTION_FORMATS.map((f) => `${f}:${counts[f]}`).join(', ');
+}
+
+// ─── Seal-in-progress bookkeeping ─────────────────────────────────────────────
+// One seal at a time per job: a second click while the worker is generating
+// must 409 with a clear message, not enqueue a duplicate that grinds the
+// single-threaded worker for minutes (live finding 2026-09-20: 18 clicks →
+// 18 queued seals). Rows finish DONE or FAILED on their own, so the guard is
+// self-clearing — a PENDING row in retry backoff still counts as in-flight.
+
+/** A POOL_SEAL row for this job still queued or running, if any. */
+function pendingSealFor(jobId: string) {
+  return prisma.jobQueue.findFirst({
+    where: {
+      type: 'POOL_SEAL',
+      status: { in: ['PENDING', 'RUNNING'] },
+      payload: { path: ['jobId'], equals: jobId },
+    },
+    select: { id: true },
+  });
+}
+
+/** The most recent FAILED seal's recorded error, if any. */
+function lastSealFailureFor(jobId: string) {
+  return prisma.jobQueue.findFirst({
+    where: {
+      type: 'POOL_SEAL',
+      status: 'FAILED',
+      payload: { path: ['jobId'], equals: jobId },
+    },
+    orderBy: { updatedAt: 'desc' },
+    select: { lastError: true },
+  });
 }
 
 // ─── Blueprint CRUD ───────────────────────────────────────────────────────────
@@ -219,6 +256,9 @@ export async function sealPool(user: AuthUser, jobId: string) {
   if (active) {
     throw new AppError(409, 'Pool already sealed — use POST /pool/reseal to regenerate', 'POOL_SEALED');
   }
+  if (await pendingSealFor(jobId)) {
+    throw new AppError(409, 'A seal is already in progress for this role', 'SEAL_IN_PROGRESS');
+  }
   await assertProvider(user.companyId!);
   await enqueue('POOL_SEAL', { jobId, reseal: false });
 }
@@ -232,6 +272,9 @@ export async function sealPool(user: AuthUser, jobId: string) {
 export async function resealPool(user: AuthUser, jobId: string) {
   await getScopedJob(user, jobId);
   await requireBlueprint(jobId, 're-sealing');
+  if (await pendingSealFor(jobId)) {
+    throw new AppError(409, 'A seal is already in progress for this role', 'SEAL_IN_PROGRESS');
+  }
   await assertProvider(user.companyId!);
   await prisma.$transaction(async (tx) => {
     await tx.sealedQuestionPool.updateMany({ where: { jobId, isActive: true }, data: { isActive: false } });
@@ -249,16 +292,25 @@ export async function resealPool(user: AuthUser, jobId: string) {
 /**
  * Sealed-pool status for GET /api/jobs/:jobId/pool — counts only, nothing
  * else, ever. This is the complete pool surface exposed to any user role.
+ * `sealingInProgress` / `lastSealError` come from the queue (status + recorded
+ * error text, never item content) so HR sees generation happening or why it
+ * died instead of a silently unchanging page (live finding 2026-09-20).
  */
 export async function getPool(user: AuthUser, jobId: string) {
   await getScopedJob(user, jobId);
-  const pool = await activePoolFor(jobId);
+  const [pool, sealing, lastFailure] = await Promise.all([
+    activePoolFor(jobId),
+    pendingSealFor(jobId),
+    lastSealFailureFor(jobId),
+  ]);
   return {
     pool: {
       hasActivePool: pool !== null,
       version: pool?.blueprintVersion ?? null,
       itemCount: pool?.itemCount ?? 0,
       sealedAt: pool?.sealedAt ?? null,
+      sealingInProgress: sealing !== null,
+      lastSealError: lastFailure?.lastError ?? null,
     },
   };
 }

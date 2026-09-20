@@ -16,8 +16,8 @@ import {
   listJobsQuerySchema,
   setJobStatusSchema,
 } from './jobs.schema';
-import { listForJob } from '../applications/applications.service';
-import { listApplicationsQuerySchema } from '../applications/applications.schema';
+import { listForJob, walkInApply } from '../applications/applications.service';
+import { listApplicationsQuerySchema, walkInSchema } from '../applications/applications.schema';
 import { createIntake, getJd, editDraft, approveJd, getJobPrompt, putJobPrompt } from './jd.service';
 import { intakeSchema, editDraftSchema, approveSchema } from './jd.schema';
 import {
@@ -268,5 +268,23 @@ router.get('/:jobId/applications', requireAuth, asyncHandler(async (req, res) =>
   const applications = await listForJob(req.user!, req.params.jobId!, filters);
   res.json({ applications });
 }));
+
+// ── Walk-in flow (founder requirement 2026-09-20) ──────────────────────────
+// A candidate arrives at the office: HR enters their identity here, the API
+// creates the application (source WALK_IN, HR-credited stage event) and mints
+// the one-time test link, which HR opens on the spot. The candidate completes
+// their remaining details at the start of the test (public.service).
+
+/** Create a walk-in application + on-the-spot test link (recruiter and admin). */
+router.post(
+  '/:jobId/walkin',
+  requireAuth,
+  requireRole('ADMIN', 'RECRUITER'),
+  asyncHandler(async (req, res) => {
+    const input = walkInSchema.parse(req.body);
+    const result = await walkInApply(req.user!, req.params.jobId!, input);
+    res.status(201).json(result);
+  }),
+);
 
 export default router;

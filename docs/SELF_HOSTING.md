@@ -60,6 +60,7 @@ item.
 | `JWT_EXPIRES_IN` | no | Local-mode login token lifetime (default `12h`) |
 | `CORS_ORIGIN` | no | Comma-separated frontend origins (default `http://localhost:5173`), or `*` |
 | `WORKER_POLL_MS` | no | Worker idle poll interval (default `2000`) |
+| `LLM_TIMEOUT_MS` | no | Ceiling for a single LLM provider call, milliseconds (default `60000`, range 1s–10min). Raise it if you use a slower provider/model: question-pool generation asks for several rich items per call and can legitimately take minutes — at the default 60s those batches die as `LLM provider unreachable` while smaller calls (JD drafts, samples) still succeed. The compose stack ships `300000` (5 minutes). |
 | `OIDC_ENABLED` | no | **Fallback only** (D19): the auth mode when no `PlatformSettings` row exists. The live mode is the platform setting (`Platform → Settings`). |
 | `OIDC_ISSUER_URL` | no | **Platform-default issuer fallback**: verifies SSO tokens whose `iss` matches no company config, e.g. `http://localhost:8081/realms/provahr` |
 | `OIDC_AUDIENCE` | no | Platform-default expected audience (default `provahr-api`) |

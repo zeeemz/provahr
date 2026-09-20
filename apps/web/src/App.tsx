@@ -20,6 +20,8 @@ import JobsPage from './hr/JobsPage';
 import JobConsole from './hr/JobConsole';
 import Pipeline from './hr/Pipeline';
 import ApplicationDetail from './hr/ApplicationDetail';
+import Activity from './hr/Activity';
+import CandidateProfile from './hr/CandidateProfile';
 import Login from './hr/Login';
 import Register from './hr/Register';
 import ProvidersPage from './admin/ProvidersPage';
@@ -56,6 +58,8 @@ export default function App(): JSX.Element {
           <Route path="jobs/:id" element={<JobConsole />} />
           <Route path="jobs/:id/pipeline" element={<Pipeline />} />
           <Route path="applications/:id" element={<ApplicationDetail />} />
+          <Route path="candidates/:id" element={<CandidateProfile />} />
+          <Route path="activity" element={<Activity />} />
           <Route
             path="admin/providers"
             element={
@@ -154,6 +158,9 @@ function AppHeader(): JSX.Element {
                 </NavLink>
                 <NavLink to="/app/jobs" className={({ isActive }) => (isActive ? 'active' : undefined)}>
                   Roles
+                </NavLink>
+                <NavLink to="/app/activity" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                  Activity
                 </NavLink>
                 {user.role === 'ADMIN' && (
                   <>

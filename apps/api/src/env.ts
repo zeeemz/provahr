@@ -27,6 +27,12 @@ const schema = z.object({
   SECRETS_KEY: z.string().min(16, 'SECRETS_KEY must be at least 16 characters').default(DEV_DEFAULT_SECRETS_KEY),
   // How long the background worker sleeps when the queue is empty (ms).
   WORKER_POLL_MS: z.coerce.number().int().min(250).default(2000),
+  // Ceiling for a single LLM HTTP call (ms). Pool batches request several
+  // rich items in one response and legitimately take minutes on slower
+  // providers — the old fixed 60s killed every pool batch against a real
+  // provider while small calls (JD, samples) squeaked through, surfacing as
+  // "seal clicked, nothing happened" (live finding, 2026-09-20).
+  LLM_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(600_000).default(60_000),
 });
 
 /**

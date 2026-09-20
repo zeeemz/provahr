@@ -8,8 +8,9 @@ import {
   canReopen,
   statusAfter,
 } from '../../rules/pipeline';
+import { generateTestToken, hashTestToken, TEST_LINK_TTL_MS } from '../../lib/testTokens';
 import type { AuthUser } from '../../types';
-import type { ApplyInput, StatusAction } from './applications.schema';
+import type { ApplyInput, StatusAction, WalkInInput } from './applications.schema';
 
 /**
  * Loads an application and enforces tenant isolation. Returns a 404 (not 403)
@@ -165,16 +166,15 @@ export async function changeStatus(
 }
 
 /**
- * Public application flow (no auth). Creates or reuses the candidate profile
- * (keyed by email), blocks duplicate applications for the same job, and
- * records the initial audit event.
+ * Candidate upsert + duplicate block + application create. Shared by the
+ * public apply flow and the HR walk-in flow so both keep identical duplicate
+ * semantics (409 before any test session can be minted — never-regress #3).
  */
-export async function applyToJob(jobId: string, input: ApplyInput): Promise<Application> {
-  const job = await prisma.job.findUnique({ where: { id: jobId } });
-  if (!job || job.status !== 'OPEN') {
-    throw new AppError(404, 'This job is not accepting applications', 'NOT_FOUND');
-  }
-
+async function upsertCandidateAndApply(
+  jobId: string,
+  input: ApplyInput,
+  opts: { source?: string; coverLetter?: string; actorId?: string | null } = {},
+): Promise<Application> {
   const candidate = await prisma.candidate.upsert({
     where: { email: input.email },
     create: {
@@ -194,7 +194,7 @@ export async function applyToJob(jobId: string, input: ApplyInput): Promise<Appl
     where: { jobId_candidateId: { jobId, candidateId: candidate.id } },
   });
   if (existing) {
-    throw new AppError(409, 'You have already applied to this job', 'ALREADY_APPLIED');
+    throw new AppError(409, 'This candidate has already applied to this job', 'ALREADY_APPLIED');
   }
 
   return prisma
@@ -203,15 +203,22 @@ export async function applyToJob(jobId: string, input: ApplyInput): Promise<Appl
         data: {
           jobId,
           candidateId: candidate.id,
-          source: input.source,
-          coverLetter: input.coverLetter,
+          source: opts.source ?? input.source,
+          coverLetter: opts.coverLetter ?? input.coverLetter,
         },
         include: { job: { select: { id: true, title: true } } },
       });
-    await tx.stageEvent.create({
-      data: { applicationId: application.id, fromStage: null, toStage: 'APPLIED', actorId: null },
-    });
-    return application;
+      await tx.stageEvent.create({
+        data: {
+          applicationId: application.id,
+          fromStage: null,
+          toStage: 'APPLIED',
+          // Walk-ins are HR-created: the stage event credits the HR user for
+          // the audit trail (null for the public self-serve flow).
+          actorId: opts.actorId ?? null,
+        },
+      });
+      return application;
     })
     .catch((err: unknown) => {
       // Concurrent duplicate apply: both requests passed the pre-check, the
@@ -219,8 +226,69 @@ export async function applyToJob(jobId: string, input: ApplyInput): Promise<Appl
       // 409 instead of the generic CONFLICT (QA wave-5 F2). The throw happens
       // inside this function, so no TestSession is ever minted for the loser.
       if ((err as { code?: string }).code === 'P2002') {
-        throw new AppError(409, 'You have already applied to this job', 'ALREADY_APPLIED');
+        throw new AppError(409, 'This candidate has already applied to this job', 'ALREADY_APPLIED');
       }
       throw err;
     });
+}
+
+/**
+ * Public application flow (no auth). Creates or reuses the candidate profile
+ * (keyed by email), blocks duplicate applications for the same job, and
+ * records the initial audit event.
+ */
+export async function applyToJob(jobId: string, input: ApplyInput): Promise<Application> {
+  const job = await prisma.job.findUnique({ where: { id: jobId } });
+  if (!job || job.status !== 'OPEN') {
+    throw new AppError(404, 'This job is not accepting applications', 'NOT_FOUND');
+  }
+  return upsertCandidateAndApply(jobId, input);
+}
+
+/** The minted link for a walk-in. Same shape as the public apply response. */
+export interface WalkInResult {
+  application: { id: string; jobId: string; createdAt: Date };
+  testLink: { token: string; expiresAt: Date } | null;
+  testLinkReason?: 'NO_POOL';
+}
+
+/**
+ * HR walk-in flow (founder requirement 2026-09-20): a candidate arrives at the
+ * office, HR creates the application on their behalf and the test link is
+ * opened on the spot — the candidate then completes their remaining details at
+ * the start of the test itself (POST /api/public/test/:token/details).
+ *
+ * Company-scoped like every HR route; OPEN jobs only, same duplicate semantics
+ * as the public flow. The stage event credits the HR user (audit trail).
+ */
+export async function walkInApply(user: AuthUser, jobId: string, input: WalkInInput): Promise<WalkInResult> {
+  const job = await prisma.job.findFirst({
+    where: { id: jobId, companyId: user.companyId! },
+    select: { id: true, status: true },
+  });
+  if (!job || job.status !== 'OPEN') {
+    throw new AppError(404, 'This job is not accepting applications', 'NOT_FOUND');
+  }
+
+  const application = await upsertCandidateAndApply(jobId, input, {
+    source: 'WALK_IN',
+    actorId: user.id,
+  });
+
+  // Active-pool check: scalars only — itemsEncrypted must never be selected
+  // into the API process (same discipline as public.service apply).
+  const pool = await prisma.sealedQuestionPool.findFirst({
+    where: { jobId, isActive: true },
+    orderBy: { sealedAt: 'desc' },
+    select: { id: true },
+  });
+  if (!pool) {
+    return { application, testLink: null, testLinkReason: 'NO_POOL' };
+  }
+
+  const { token, tokenHash } = generateTestToken();
+  const expiresAt = new Date(Date.now() + TEST_LINK_TTL_MS);
+  await prisma.testSession.create({ data: { applicationId: application.id, jobId, tokenHash, expiresAt } });
+  // The ONLY time the plain token leaves the system (same contract as apply).
+  return { application, testLink: { token, expiresAt } };
 }

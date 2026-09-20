@@ -104,7 +104,12 @@ export default function ApplicationDetail(): JSX.Element {
         <Link to={`/app/jobs/${app.job.id}/pipeline`}>← Pipeline: {app.job.title}</Link>
       </p>
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h1>{app.candidate.name}</h1>
+        <h1>
+          {app.candidate.name}{' '}
+          <Link to={`/app/candidates/${app.candidateId}`} style={{ fontSize: '0.6em' }}>
+            test profile →
+          </Link>
+        </h1>
         <div className="row">
           <span className="badge blue">{humanize(app.stage)}</span>
           <span className={statusBadgeClass(app.status)}>{humanize(app.status)}</span>

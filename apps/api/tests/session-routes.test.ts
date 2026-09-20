@@ -554,8 +554,12 @@ describe('POST /test/:token/signals — evidence, never status', () => {
 
 // ─── POST /submit ─────────────────────────────────────────────────────────────
 
-describe('POST /test/:token/submit — the asymmetric end', () => {
-  it('returns EXACTLY { submitted: true } — no score, no feedback, ever', async () => {
+describe('POST /test/:token/submit — the (amended) asymmetric end', () => {
+  // Founder amendment 2026-09-21: submit also returns immediate MCQ/SWIPE
+  // marking when it is computable. In THIS file the session mock still reads
+  // STARTED on the marking re-lookup, so marking is honestly omitted — the
+  // marking-present path is covered in marking.test.ts.
+  it('returns { submitted: true } and omits `marking` when it cannot be computed', async () => {
     primeSession(startedRow());
 
     const res = await request(app).post(`/api/public/test/${TOKEN}/submit`);

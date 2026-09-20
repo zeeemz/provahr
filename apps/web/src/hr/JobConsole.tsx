@@ -757,8 +757,23 @@ function PoolStep({ jobId }: { jobId: string }): JSX.Element {
   }, [jobId]);
 
   useEffect(() => {
-    load().catch((err) => setError(err));
+    let cancelled = false;
+    // Poll while the worker is generating: the queue row (PENDING/RUNNING) is
+    // the source of truth, so a reload — or never having clicked here at all —
+    // still shows live progress. No polling once sealed or idle.
+    const run = (): void => {
+      void load()
+        .then((res) => {
+          if (cancelled) return;
+          if (!res.pool.hasActivePool && res.pool.sealingInProgress) {
+            timerRef.current = setTimeout(run, POLL_MS);
+          }
+        })
+        .catch((err) => setError(err));
+    };
+    run();
     return () => {
+      cancelled = true;
       if (timerRef.current !== null) clearTimeout(timerRef.current);
     };
   }, [load]);
@@ -768,20 +783,17 @@ function PoolStep({ jobId }: { jobId: string }): JSX.Element {
     setFormError(null);
     try {
       await api.post(`/jobs/${jobId}${path}`, {});
-      const pollLoad = (): void => {
-        void load()
-          .then((res) => {
-            if (!res.pool.hasActivePool) timerRef.current = setTimeout(pollLoad, POLL_MS);
-          })
-          .catch((err) => setError(err));
-      };
-      timerRef.current = setTimeout(pollLoad, POLL_MS);
+      await load(); // picks up sealingInProgress → starts the poll loop
     } catch (err) {
       setFormError(errMessage(err));
     } finally {
       setBusy(false);
     }
   }
+
+  const sealing = pool?.pool.sealingInProgress ?? false;
+  const sealFailed =
+    pool !== null && !pool.pool.hasActivePool && !sealing && pool.pool.lastSealError !== null;
 
   return (
     <div className="card">
@@ -798,21 +810,32 @@ function PoolStep({ jobId }: { jobId: string }): JSX.Element {
           {fmtDateTime(pool.pool.sealedAt)}
         </p>
       )}
-      {pool !== null && !pool.pool.hasActivePool && (
+      {pool !== null && !pool.pool.hasActivePool && !sealing && (
         <p className="muted">No active pool yet — the board shows this role as &ldquo;No test&rdquo; until you seal one.</p>
+      )}
+      {sealing && (
+        <p className="busy">
+          <span className="spin" /> Sealing in progress — the worker is generating the pool
+          (this usually takes a few minutes). This page updates automatically.
+        </p>
+      )}
+      {sealFailed && (
+        <p className="form-error">
+          Last seal attempt failed: {pool!.pool.lastSealError}
+        </p>
       )}
 
       {formError !== null && <p className="form-error">{formError}</p>}
       {error !== null && <ErrorBox err={error} note="Could not load pool status" />}
       <div className="row" style={{ marginTop: 12 }}>
         {pool !== null && !pool.pool.hasActivePool && (
-          <button type="button" disabled={busy} onClick={() => void seal('/pool/seal')}>
-            {busy ? 'Sealing…' : 'Generate & seal pool'}
+          <button type="button" disabled={busy || sealing} onClick={() => void seal('/pool/seal')}>
+            {busy || sealing ? 'Sealing…' : 'Generate & seal pool'}
           </button>
         )}
         {pool !== null && pool.pool.hasActivePool && (
-          <button type="button" className="danger" disabled={busy} onClick={() => void seal('/pool/reseal')}>
-            {busy ? 'Re-sealing…' : 'Re-seal (destroy + regenerate)'}
+          <button type="button" className="danger" disabled={busy || sealing} onClick={() => void seal('/pool/reseal')}>
+            {busy || sealing ? 'Re-sealing…' : 'Re-seal (destroy + regenerate)'}
           </button>
         )}
       </div>

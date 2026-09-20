@@ -2,6 +2,7 @@
 // (Node 22 / undici) — zero new dependencies. Never logs anything: request
 // bodies and headers carry secrets.
 
+import { env } from '../../env';
 import { LlmError } from './errors';
 import type { ChatMessage, ChatRequest } from './types';
 
@@ -12,7 +13,9 @@ export interface PostJsonOptions {
   scrub?: string;
 }
 
-const DEFAULT_TIMEOUT_MS = 60_000;
+// Single knob for every provider call (see env.ts): pool batches run long,
+// small calls finish early — a ceiling, not a duration.
+const DEFAULT_TIMEOUT_MS = env.LLM_TIMEOUT_MS;
 const RETRY_BACKOFF_MS = 300;
 
 function sleep(ms: number): Promise<void> {

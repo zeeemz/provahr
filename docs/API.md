@@ -88,14 +88,15 @@ Company-scoped throughout. Job body fields (`title`, `department`,
 | GET | `/api/jobs/:jobId/blueprint` | ADMIN, RECRUITER | → `{ blueprint, pool: {hasActivePool, poolVersion, itemCount, sealedAt} }` |
 | POST | `/api/jobs/:jobId/blueprint/samples` | ADMIN, RECRUITER | `{}` → **202** `{ queued: true }` (preview items). Errors: **404 `BLUEPRINT_NOT_FOUND`**, **503 `NO_PROVIDER`** |
 | GET | `/api/jobs/:jobId/blueprint/samples` | ADMIN, RECRUITER | → `{ samples }` — preview-only items, visible **by design**, never drawn into sessions |
-| POST | `/api/jobs/:jobId/pool/seal` | ADMIN, RECRUITER | `{}` → **202** `{ queued: true }` (worker generates ≥6× draw and seals). Errors: **404 `BLUEPRINT_NOT_FOUND`**, **409 `POOL_SEALED`**, **503 `NO_PROVIDER`** |
-| POST | `/api/jobs/:jobId/pool/reseal` | ADMIN, RECRUITER | `{}` → **202** `{ queued: true }` — deactivates the old pool **immediately** (transactional with the enqueue), then regenerates |
-| GET | `/api/jobs/:jobId/pool` | ADMIN, RECRUITER | → `{ pool: { hasActivePool, version, itemCount, sealedAt } }` — **counts only; no endpoint anywhere returns pool items to any role** |
+| POST | `/api/jobs/:jobId/pool/seal` | ADMIN, RECRUITER | `{}` → **202** `{ queued: true }` (worker generates ≥6× draw and seals). Errors: **404 `BLUEPRINT_NOT_FOUND`**, **409 `POOL_SEALED`**, **409 `SEAL_IN_PROGRESS`** (one seal per role at a time — retrying mid-generation no longer queues duplicates), **503 `NO_PROVIDER`** |
+| POST | `/api/jobs/:jobId/pool/reseal` | ADMIN, RECRUITER | `{}` → **202** `{ queued: true }` — deactivates the old pool **immediately** (transactional with the enqueue), then regenerates. Errors: **409 `SEAL_IN_PROGRESS`**, **503 `NO_PROVIDER`** |
+| GET | `/api/jobs/:jobId/pool` | ADMIN, RECRUITER | → `{ pool: { hasActivePool, version, itemCount, sealedAt, sealingInProgress, lastSealError } }` — **counts and queue status only; no endpoint anywhere returns pool items to any role** |
 | GET | `/api/jobs/:jobId` | auth | → `{ job }` |
 | PATCH | `/api/jobs/:jobId` | ADMIN, RECRUITER | partial job body → `{ job }` |
 | DELETE | `/api/jobs/:jobId` | ADMIN, RECRUITER | → **204** (cascades applications) |
 | POST | `/api/jobs/:jobId/status` | ADMIN, RECRUITER | `{ status: DRAFT\|OPEN\|PAUSED\|CLOSED }` → `{ job }` (validated lifecycle transitions, `rules/jobStatus.ts`; only `OPEN` shows on the public board) |
 | GET | `/api/jobs/:jobId/applications` | auth | query `stage?, status?` → `{ applications }` (pipeline board) |
+| POST | `/api/jobs/:jobId/walkin` | ADMIN, RECRUITER | `{ name, email, phone? }` → **201** `{ application, testLink \| null, testLinkReason?: "NO_POOL" }` — the HR walk-in flow (2026-09-20): creates the application on the candidate's behalf (`source: WALK_IN`, stage event credits the HR user) and mints the one-time test link to open on the spot; the candidate completes their own details via `POST /api/public/test/:token/details` before the test. Errors: **404** (not OPEN / other company), **409 `ALREADY_APPLIED`** |
 
 ## Public board & apply — `/api/public`
 
@@ -114,16 +115,28 @@ surface never carries scores, verdicts, or feedback (asymmetry).
 
 | Method | Path | Request → Response |
 |---|---|---|
-| GET | `/api/public/test/:token` (**20/min/IP**, own bucket) | → `{ status, expiresAt, jobTitle, timeLimitMin, alreadyUsed }` (consent screen; NEVER items). Errors: **404** (uniform) |
+| GET | `/api/public/test/:token` (**20/min/IP**, own bucket) | → `{ status, expiresAt, jobTitle, timeLimitMin, alreadyUsed, walkIn, candidate? }` (consent screen; NEVER items). Walk-in links additionally carry the HR-entered `candidate: {name, email, phone, resumeUrl, linkedinUrl, githubUrl}` for the details step. Errors: **404** (uniform) |
+| POST | `/api/public/test/:token/details` | `{ phone?, resumeUrl?, linkedinUrl?, githubUrl?, coverLetter? }` → `{ saved: true }` — the walk-in candidate completes their own details BEFORE starting (name/email are HR-owned; every field optional). Errors: **404** (uniform — unknown and non-walk-in tokens answer identically), **409 `DETAILS_LOCKED`** (once the session has started) |
 | POST | `/api/public/test/:token/start` | body `{}` → **201** fresh start / **200** idempotent re-entry: `{ questions: [{order, format, presented}], answers: {order→content}, meta: {deadlineAt, timeLimitMin, total} }`. Errors: **409 `SESSION_SUBMITTED`**, **410 `TEST_LINK_EXPIRED`** (lazy ISSUED→EXPIRED flip), **409 `SESSION_EXPIRED`** (re-entry past deadline), **409 `BLUEPRINT_NOT_FOUND` / `POOL_INACTIVE`** (fail-closed mid-reseal), **500 `POOL_CORRUPT`** |
 | GET | `/api/public/test/:token/session` | → the same view shape (refresh-safe; re-reads persisted questions — no second decrypt). Errors: as above |
 | POST | `/api/public/test/:token/answers` | `{ order, content }` where content is `{optionId: LIKE\|DISLIKE}` (SWIPE_MCQ), `{optionId}` (MCQ) or `{text ≤10k chars}` (WRITTEN/CODE) → `{ saved: true }`. Errors: **400 `INVALID_ANSWER`**, **404** (unknown order), **409 `SESSION_EXPIRED`** (no grace on answers) |
 | POST | `/api/public/test/:token/signals` | `{ signals: [{type, at, detail?}] }` (types: `TAB_SWITCH \| APP_BACKGROUND \| BLUR \| LARGE_PASTE \| COPY \| TIMING_ANOMALY`) → `{ recorded: n }` — append-only evidence, capped at 500/session, **never** changes status |
-| POST | `/api/public/test/:token/submit` | body `{}` → `{ submitted: true }` — and nothing else, ever. A submit ≤60s past the deadline is accepted (grace); later → **409 `SESSION_EXPIRED`** |
+| POST | `/api/public/test/:token/submit` | body `{}` → `{ submitted: true, marking? }` — the founder amendment of 2026-09-21 rides **immediate deterministic marking** for MCQ/SWIPE_MCQ on the response (best-effort: transiently omitted mid-reseal). Open formats stay opaque. A submit ≤60s past the deadline is accepted (grace); later → **409 `SESSION_EXPIRED`** |
+| GET | `/api/public/test/:token/marking` | → `{ items: [{ order, format, status: MARKED \| PENDING_EVALUATION \| NOT_COUNTED, correct?, score?, selectedOptionId?, correctOptionId? }], summary: { marked, correct, partial } }` — the post-submit marking view (SUBMITTED only; **409 `SESSION_NOT_SUBMITTED`** earlier). Voided items are NOT_COUNTED; pool-drifted items are never marked wrong |
 
-## Applications pipeline + X-ray + void — `/api/applications`
+## Candidate test profile — `/api/candidates`
+
+The cross-role testing story for one person (founder requirement 2026-09-21): every application
+to this company, each test's outcome, and the aggregate. Computed on read from evaluation
+evidence — it exists the moment a test completes. Re-appearance is unrestricted by design: a
+candidate rejected on one role applies to any other role freely (only re-applying to the SAME
+role is a 409 `ALREADY_APPLIED`).
 
 | Method | Path | Auth | Request → Response |
+|---|---|---|---|
+| GET | `/api/candidates/:candidateId/profile` | ADMIN, RECRUITER | → `{ candidate, summary: { applications, testsTaken, averageScore, byFormat: {FORMAT: {CORRECT, PARTIAL, INCORRECT}}, flags: {high, medium} }, history: [{ applicationId, jobId, jobTitle, stage, status, source, appliedAt, session: { status, submittedAt, score, strengths, gaps } \| null }] }`. Errors: **404** (unknown / no application to this company — no cross-tenant oracle) |
+
+## Applications pipeline + X-ray + void — `/api/applications`| Method | Path | Auth | Request → Response |
 |---|---|---|---|
 | GET | `/api/applications/:applicationId` | auth | → `{ application }` (candidate, history, interviews, scorecards) |
 | PATCH | `/api/applications/:applicationId/stage` | ADMIN, RECRUITER | `{ stage: APPLIED\|SCREENING\|ASSESSMENT\|INTERVIEW\|OFFER\|HIRED }` → `{ application }` (validated transitions, `rules/pipeline.ts`; audit `StageEvent` appended) |
@@ -145,6 +158,12 @@ surface never carries scores, verdicts, or feedback (asymmetry).
 | Method | Path | Auth | Request → Response |
 |---|---|---|---|
 | GET | `/api/stats` | auth | → `{ jobs: {total, open}, applications: {total, active, hired, rejected}, byStage: {…}, recentEvents: [...] }` (company dashboard; the endpoint is `/api/stats`, not `/api/stats/dashboard`) |
+
+## Activity — `/api/activity`
+
+| Method | Path | Auth | Request → Response |
+|---|---|---|---|
+| GET | `/api/activity?limit=50` | ADMIN, RECRUITER | → `{ events: [{ id, type (JD_GENERATION\|SAMPLES_GENERATION\|POOL_SEAL\|EVALUATION), status (PENDING\|RUNNING\|DONE\|FAILED), attempts, maxAttempts, lastError, createdAt, updatedAt, jobId, jobTitle }] }` — the company's background-work feed, newest first (`limit` 1–200). Queue metadata only: payloads never carry content, so this surface cannot leak pool items by construction. |
 
 ## Admin (company-scoped) — `/api/admin/*` (all ADMIN)
 

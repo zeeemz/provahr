@@ -7,9 +7,11 @@ import authRouter from './modules/auth/auth.router';
 import usersRouter from './modules/users/users.router';
 import jobsRouter from './modules/jobs/jobs.router';
 import applicationsRouter from './modules/applications/applications.router';
+import candidatesRouter from './modules/candidates/candidates.router';
 import interviewsRouter from './modules/interviews/interviews.router';
 import publicRouter from './modules/public/public.router';
 import statsRouter from './modules/stats/stats.router';
+import activityRouter from './modules/activity/activity.router';
 import setupRouter, { WIZARD_HTML } from './modules/setup/setup.router';
 import adminRouter from './modules/admin/llm-providers.router';
 import platformRouter from './modules/platform/platform.router';
@@ -69,9 +71,11 @@ export function createApp() {
   app.use('/api/users', usersRouter);
   app.use('/api/jobs', jobsRouter);
   app.use('/api/applications', applicationsRouter);
+  app.use('/api/candidates', candidatesRouter);
   app.use('/api/interviews', interviewsRouter);
   app.use('/api/public', publicRouter);
   app.use('/api/stats', statsRouter);
+  app.use('/api/activity', activityRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

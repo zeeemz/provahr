@@ -18,10 +18,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ApiError, api, isNotFound } from '../api/client';
+import { ApiError, api, errMessage, isNotFound } from '../api/client';
 import {
   asPresented,
   type AnswerContent,
+  type MarkingView,
   type SessionView,
   type SignalType,
   type SwipeValuation,
@@ -40,6 +41,7 @@ type Phase =
   | { kind: 'link-not-found' }
   | { kind: 'link-expired'; jobTitle?: string }
   | { kind: 'already-submitted'; jobTitle: string }
+  | { kind: 'details'; info: TestLinkInfo } // walk-in: candidate completes their details pre-consent
   | { kind: 'consent'; info: TestLinkInfo }
   | { kind: 'resume'; info: TestLinkInfo }
   | { kind: 'starting' }
@@ -61,6 +63,7 @@ export default function TestFlow(): JSX.Element {
         else if (info.status === 'SUBMITTED')
           setPhase({ kind: 'already-submitted', jobTitle: info.jobTitle });
         else if (info.status === 'STARTED') setPhase({ kind: 'resume', info });
+        else if (info.walkIn) setPhase({ kind: 'details', info });
         else setPhase({ kind: 'consent', info });
       })
       .catch((err) => {
@@ -130,13 +133,18 @@ export default function TestFlow(): JSX.Element {
       );
     case 'already-submitted':
       return shell(
-        <div className="card">
-          <div className="submitted-hero">Submitted ✓</div>
-          <p className="center sub">
-            This test{phase.jobTitle ? ` (${phase.jobTitle})` : ''} was already submitted. Nothing
-            further is needed.
-          </p>
-        </div>,
+        <SubmittedCard
+          note={phase.jobTitle ? `This test (${phase.jobTitle}) was already submitted. Nothing further is needed.` : 'This test was already submitted. Nothing further is needed.'}
+          fetchMarkingFrom={token}
+        />,
+      );
+    case 'details':
+      return (
+        <DetailsScreen
+          token={token}
+          info={phase.info}
+          onContinue={() => setPhase({ kind: 'consent', info: phase.info })}
+        />
       );
     case 'consent':
       return <ConsentScreen info={phase.info} onStart={() => void beginSession()} starting={false} />;
@@ -148,12 +156,10 @@ export default function TestFlow(): JSX.Element {
       return <SessionRunner token={token} />;
     case 'submitted':
       return shell(
-        <div className="card">
-          <div className="submitted-hero">Submitted ✓</div>
-          <p className="center sub">
-            Your answers have been received. The hiring team will take it from here.
-          </p>
-        </div>,
+        <SubmittedCard
+          marking={null}
+          note="Your answers have been received. The hiring team will take it from here."
+        />,
       );
     case 'time-up':
       return shell(
@@ -170,6 +176,192 @@ export default function TestFlow(): JSX.Element {
 
 function shell(children: React.ReactNode): JSX.Element {
   return <main className="page narrow test-shell">{children}</main>;
+}
+
+// ─── Post-submit marking (founder decision 2026-09-21) ───────────────────────
+// Objective formats (MCQ / select-all) are marked immediately; written and
+// coding answers await evaluation by the hiring team.
+
+function SubmittedCard({
+  note,
+  marking,
+  fetchMarkingFrom,
+}: {
+  note: string;
+  marking?: MarkingView | null;
+  /** When set, the marking is fetched lazily (re-entry into a submitted link). */
+  fetchMarkingFrom?: string;
+}): JSX.Element {
+  const [fetched, setFetched] = useState<MarkingView | null | undefined>(marking);
+  useEffect(() => {
+    if (fetchMarkingFrom === undefined || fetched !== undefined) return;
+    let cancelled = false;
+    api
+      .get<MarkingView>(`/public/test/${fetchMarkingFrom}/marking`)
+      .then((m) => {
+        if (!cancelled) setFetched(m);
+      })
+      .catch(() => {
+        if (!cancelled) setFetched(null); // best-effort — the plain confirmation stands
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchMarkingFrom, fetched]);
+
+  return (
+    <div className="card">
+      <div className="submitted-hero">Submitted ✓</div>
+      <p className="center sub">{note}</p>
+      {fetched !== undefined && fetched !== null && <MarkingPanel marking={fetched} />}
+    </div>
+  );
+}
+
+function MarkingPanel({ marking }: { marking: MarkingView }): JSX.Element {
+  const { summary, items } = marking;
+  const pending = items.filter((i) => i.status === 'PENDING_EVALUATION').length;
+  return (
+    <div style={{ textAlign: 'left' }}>
+      <h3 style={{ marginBottom: 6 }}>Your results so far</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        Multiple-choice answers are marked automatically:{' '}
+        <strong>
+          {summary.correct} of {summary.marked} correct
+        </strong>
+        {summary.partial > 0 && <> · {summary.partial} partial</>}
+        {pending > 0 && (
+          <>
+            {' '}· {pending} written/coding answer{pending === 1 ? '' : 's'} awaiting evaluation by
+            the hiring team
+          </>
+        )}
+        .
+      </p>
+      <table className="list" style={{ fontSize: '0.9rem' }}>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Question</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.order}>
+              <td>{item.order}</td>
+              <td>{formatLabel(item.format)}</td>
+              <td>
+                {item.status === 'MARKED' && item.correct === true && (
+                  <span className="badge green">Correct</span>
+                )}
+                {item.status === 'MARKED' && item.correct === false && (
+                  <span className="badge red">
+                    Incorrect{typeof item.score === 'number' && item.score > 0 ? ` (partial: ${item.score.toFixed(2)})` : ''}
+                  </span>
+                )}
+                {item.status === 'PENDING_EVALUATION' && (
+                  <span className="badge outline">Awaiting evaluation</span>
+                )}
+                {item.status === 'NOT_COUNTED' && <span className="badge outline">Not counted</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {pending > 0 && (
+        <p className="hint">
+          Written and coding answers are reviewed by the hiring team — you&apos;ll hear from them.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Walk-in details (candidate fills what HR could not) ─────────────────────
+
+function DetailsScreen({
+  token,
+  info,
+  onContinue,
+}: {
+  token: string;
+  info: TestLinkInfo;
+  onContinue: () => void;
+}): JSX.Element {
+  const c = info.candidate;
+  const [phone, setPhone] = useState(c?.phone ?? '');
+  const [resumeUrl, setResumeUrl] = useState(c?.resumeUrl ?? '');
+  const [linkedinUrl, setLinkedinUrl] = useState(c?.linkedinUrl ?? '');
+  const [githubUrl, setGithubUrl] = useState(c?.githubUrl ?? '');
+  const [coverLetter, setCoverLetter] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function continueToConsent(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    // Only filled fields are sent — everything here is optional by design.
+    const body: Record<string, string> = {};
+    if (phone.trim() !== '') body.phone = phone.trim();
+    if (resumeUrl.trim() !== '') body.resumeUrl = resumeUrl.trim();
+    if (linkedinUrl.trim() !== '') body.linkedinUrl = linkedinUrl.trim();
+    if (githubUrl.trim() !== '') body.githubUrl = githubUrl.trim();
+    if (coverLetter.trim() !== '') body.coverLetter = coverLetter.trim();
+    try {
+      if (Object.keys(body).length > 0) {
+        await api.post(`/public/test/${token}/details`, body);
+      }
+      onContinue();
+    } catch (err) {
+      setError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="page narrow test-shell">
+      <div className="card">
+        <h1>{info.jobTitle}</h1>
+        <p className="sub">Welcome{c ? `, ${c.name}` : ''} — a few details before your test.</p>
+
+        {c !== undefined && (
+          <p className="hint">
+            Registered by the hiring team as <strong>{c.name}</strong> ({c.email}).
+            Something wrong? Tell the person who checked you in.
+          </p>
+        )}
+
+        <label className="field" htmlFor="wd-phone">Phone</label>
+        <input id="wd-phone" type="text" maxLength={30} value={phone} onChange={(e) => setPhone(e.target.value)} />
+
+        <label className="field" htmlFor="wd-resume">Resume URL (optional)</label>
+        <input id="wd-resume" type="text" placeholder="https://…" maxLength={500} value={resumeUrl}
+          onChange={(e) => setResumeUrl(e.target.value)} />
+
+        <label className="field" htmlFor="wd-li">LinkedIn (optional)</label>
+        <input id="wd-li" type="text" placeholder="https://linkedin.com/in/…" maxLength={500} value={linkedinUrl}
+          onChange={(e) => setLinkedinUrl(e.target.value)} />
+
+        <label className="field" htmlFor="wd-gh">GitHub (optional)</label>
+        <input id="wd-gh" type="text" placeholder="https://github.com/…" maxLength={500} value={githubUrl}
+          onChange={(e) => setGithubUrl(e.target.value)} />
+
+        <label className="field" htmlFor="wd-cover">Anything you'd like us to know? (optional)</label>
+        <textarea id="wd-cover" maxLength={5000} style={{ minHeight: 100 }} value={coverLetter}
+          onChange={(e) => setCoverLetter(e.target.value)} />
+
+        {error !== null && <p className="form-error">{error}</p>}
+        <p style={{ marginTop: 16 }}>
+          <button type="button" disabled={busy} onClick={() => void continueToConsent()}>
+            {busy ? 'Saving…' : 'Continue'}
+          </button>
+        </p>
+        <p className="hint">Everything here is optional — Continue works without filling anything in.</p>
+      </div>
+    </main>
+  );
 }
 
 // ─── Consent ──────────────────────────────────────────────────────────────────
@@ -319,7 +511,7 @@ function SessionRunner({ token }: { token: string }): JSX.Element {
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [ended, setEnded] = useState<'submitted' | 'time-up' | null>(null);
+  const [ended, setEnded] = useState<{ kind: 'submitted'; marking: MarkingView | null } | { kind: 'time-up' } | null>(null);
 
   const submittedRef = useRef(false); // guards the one-shot auto-submit at zero
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -426,13 +618,16 @@ function SessionRunner({ token }: { token: string }): JSX.Element {
     await signals.flush();
     setSubmitting(true);
     try {
-      await api.post(`/public/test/${token}/submit`, {});
-      setEnded('submitted');
+      const res = await api.post<{ submitted: boolean; marking?: MarkingView }>(
+        `/public/test/${token}/submit`,
+        {},
+      );
+      setEnded({ kind: 'submitted', marking: res.marking ?? null });
     } catch (err) {
       if (err instanceof ApiError && err.code === 'SESSION_EXPIRED') {
         // Outside the 60s grace window: the saved answers stand, unsaved tail lost.
         void auto;
-        setEnded('time-up');
+        setEnded({ kind: 'time-up' });
         return;
       }
       setSaveState('error');
@@ -442,15 +637,19 @@ function SessionRunner({ token }: { token: string }): JSX.Element {
     }
   }
 
-  if (ended === 'submitted') {
+  if (ended !== null && ended.kind === 'submitted') {
     return shell(
-      <div className="card">
-        <div className="submitted-hero">Submitted ✓</div>
-        <p className="center sub">Your answers have been received. The hiring team will take it from here.</p>
-      </div>,
+      <SubmittedCard
+        marking={ended.marking}
+        note={
+          ended.marking === null
+            ? 'Your answers have been received. The hiring team will take it from here.'
+            : 'Your answers have been received.'
+        }
+      />,
     );
   }
-  if (ended === 'time-up') {
+  if (ended !== null && ended.kind === 'time-up') {
     return shell(
       <div className="card">
         <h2>Time is up</h2>

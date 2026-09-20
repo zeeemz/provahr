@@ -2,9 +2,9 @@ import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import { AppError, asyncHandler } from '../../lib/http';
 import { createRateLimiter } from '../../lib/rateLimit';
-import { listPublicJobs, getPublicJob, apply, getTestLinkInfo } from './public.service';
+import { listPublicJobs, getPublicJob, apply, getTestLinkInfo, saveWalkInDetails } from './public.service';
 import { publicJobsQuerySchema } from './public.schema';
-import { applySchema } from '../applications/applications.schema';
+import { applySchema, walkInDetailsSchema } from '../applications/applications.schema';
 import { answerSchema, signalsSchema, startSchema } from './session.schema';
 import {
   getSessionView,
@@ -13,6 +13,7 @@ import {
   submitSession,
   upsertAnswer,
 } from './session.service';
+import { objectiveMarking } from './marking.service';
 
 const router = Router();
 
@@ -79,13 +80,27 @@ router.post(
 
 /** Consent-screen metadata for a one-time test link (PLAN.md §9) — status,
  *  expiry, job title, time limit. NEVER items. Unknown and invalid tokens
- *  answer identically: one 404, no oracle. */
+ *  answer identically: one 404, no oracle. Walk-in links additionally carry
+ *  the HR-entered identity for the candidate's details step. */
 router.get(
   '/test/:token',
   ipRateLimit(testTokenLimiter),
   asyncHandler(async (req, res) => {
     const info = await getTestLinkInfo(req.params.token!);
     res.json(info);
+  }),
+);
+
+/** Walk-in candidate detail completion (before consent): links, cover letter,
+ *  phone — never name/email (HR-owned). Token-gated like every session route;
+ *  uniform 404; only while the session is still PENDING. */
+router.post(
+  '/test/:token/details',
+  ipRateLimit(sessionLimiter),
+  asyncHandler(async (req, res) => {
+    const input = walkInDetailsSchema.parse(req.body);
+    await saveWalkInDetails(req.params.token!, input);
+    res.json({ saved: true });
   }),
 );
 
@@ -140,13 +155,27 @@ router.post(
   }),
 );
 
-/** Finalize. The candidate sees { submitted: true } and nothing else, ever. */
+/** Finalize. The candidate sees { submitted: true } plus — since the founder
+ *  amendment of 2026-09-21 — immediate deterministic marking for the
+ *  objective formats (MCQ/SWIPE_MCQ). Open formats stay "pending evaluation"
+ *  until the HR-side run; scores/verdicts for them never appear here. */
 router.post(
   '/test/:token/submit',
   ipRateLimit(sessionLimiter),
   asyncHandler(async (req, res) => {
     const result = await submitSession(req.params.token!);
     res.json(result);
+  }),
+);
+
+/** Post-submit marking view (re-entry / refresh of the submitted screen).
+ *  Token-gated like every session endpoint; uniform 404; SUBMITTED only. */
+router.get(
+  '/test/:token/marking',
+  ipRateLimit(sessionLimiter),
+  asyncHandler(async (req, res) => {
+    const marking = await objectiveMarking(req.params.token!);
+    res.json(marking);
   }),
 );
 

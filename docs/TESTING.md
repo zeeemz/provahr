@@ -87,6 +87,11 @@ No secrets required for green CI. Real-provider smoke tests run only when
 4. **Tenancy isolation** — cross-company data access 404s on the same install (T3; v2: tenants, not installs).
 5. **Session clock** — review pass and revising answers never pause the clock (T2).
 6. **Candidate asymmetry** — no public endpoint exposes evaluations (T3).
+   *Founder amendment (2026-09-21):* submit-time marking for the objective
+   formats (MCQ/SWIPE_MCQ) is candidate-visible by design
+   (`modules/public/marking.service.ts`) — it exposes only the deterministic
+   outcome of a finished, single-use session. Evaluations (LLM verdicts,
+   sandbox results, AI-likelihood, collusion) remain HR-only.
 7. **Sandbox containment** — network egress fails inside the executor (T4).
 
 ## 7. Review rules
