@@ -67,6 +67,10 @@ services:
       LLM_TIMEOUT_MS: "300000"
       NODE_ENV: production
       PORT: "4000"
+    # Same DNS workaround as the worker (see the comment there).
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     # The prisma CLI is baked into the image (see apps/api/Dockerfile), so npx
     # runs it offline. Schema application is idempotent on every boot.
     command: >
@@ -97,6 +101,14 @@ services:
       OIDC_ENABLED: "false"
       LLM_TIMEOUT_MS: "300000"
       NODE_ENV: production
+    # WORKAROUND (2026-09-21, this machine): Docker Desktop's embedded DNS
+    # forwarder was flapping (EAI_AGAIN ~2 of 3 lookups) after an unclean
+    # engine start — LLM calls died as "provider unreachable" in bursts.
+    # Pinning public resolvers bypasses the broken forwarder; remove if the
+    # engine behaves after a future clean reinstall.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     # Migrations are idempotent; the worker ALSO applies them so a fresh
     # volume can never race the API's boot-time migrate (E2E catch: worker
     # started on a fresh DB, hit P2021 on job_queue, and crashed).
