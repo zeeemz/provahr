@@ -1,4 +1,7 @@
-# syntax=docker/dockerfile:1
+# NOTE: no `# syntax=docker/dockerfile:1` pin on purpose (2026-09-21): the
+# pull-through frontend made builds DNS-dependent, and this file uses only
+# builtin-frontend features (plain FROM/COPY/RUN multi-stage). Local cache
+# builds with zero network.
 # ProvaHR API — monorepo-aware multi-stage build.
 #
 # The build context MUST be the repo root (the app is a npm workspace):

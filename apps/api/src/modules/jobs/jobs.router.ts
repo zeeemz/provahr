@@ -27,6 +27,7 @@ import {
   getSamples,
   sealPool,
   resealPool,
+  cancelSeal,
   getPool,
 } from './blueprint.service';
 import { putBlueprintSchema, samplesRequestSchema } from './blueprint.schema';
@@ -207,6 +208,19 @@ router.post(
     samplesRequestSchema.parse(req.body); // no-body route, same empty-object shape
     await resealPool(req.user!, req.params.jobId!);
     res.status(202).json({ queued: true });
+  }),
+);
+
+/** Abort an in-flight seal (2026-09-21): terminal CANCELLED; the worker
+ *  bails out between LLM batches and no pool is written. */
+router.post(
+  '/:jobId/pool/cancel',
+  requireAuth,
+  requireRole('ADMIN', 'RECRUITER'),
+  asyncHandler(async (req, res) => {
+    samplesRequestSchema.parse(req.body); // no-body route, same empty-object shape
+    const result = await cancelSeal(req.user!, req.params.jobId!);
+    res.json(result);
   }),
 );
 

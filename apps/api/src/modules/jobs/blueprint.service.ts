@@ -290,6 +290,46 @@ export async function resealPool(user: AuthUser, jobId: string) {
 }
 
 /**
+ * HR abort for an in-flight seal (founder requirement 2026-09-21: "let me shut
+ * a seal in progress"). Flips the job's PENDING/RUNNING POOL_SEAL row to the
+ * terminal CANCELLED state: PENDING rows are never claimed; the worker's
+ * in-flight handler notices between LLM batches (sealAborted) and bails out
+ * before any pool write. Cancellation is safe at every instant — the sealed
+ * pool is only written in the final transaction, so an aborted seal leaves the
+ * role exactly as it was (no active pool mid-reseal, previous pool untouched).
+ */
+export async function cancelSeal(user: AuthUser, jobId: string) {
+  await getScopedJob(user, jobId);
+  const row = await pendingSealFor(jobId);
+  if (!row) {
+    throw new AppError(409, 'No seal in progress for this role', 'NO_SEAL_IN_PROGRESS');
+  }
+  await prisma.jobQueue.update({
+    where: { id: row.id },
+    data: { status: 'CANCELLED', lastError: `Cancelled by ${user.name}` },
+  });
+  return { cancelled: true };
+}
+
+/**
+ * Cooperative abort check for the RUNNING handler: this run's queue row is the
+ * only PENDING/RUNNING POOL_SEAL row for the job (the one-seal-at-a-time
+ * guard) — if it has left the active states mid-run, HR cancelled it.
+ */
+function sealAborted(jobId: string): Promise<boolean> {
+  return pendingSealFor(jobId).then((row) => row === null);
+}
+
+/** Thrown between batches when HR cancels; fail() then sees CANCELLED and no-ops. */
+function assertNotAborted(jobId: string): Promise<void> {
+  return sealAborted(jobId).then((aborted) => {
+    if (aborted) {
+      throw new AppError(409, 'Seal cancelled by HR', 'SEAL_CANCELLED');
+    }
+  });
+}
+
+/**
  * Sealed-pool status for GET /api/jobs/:jobId/pool — counts only, nothing
  * else, ever. This is the complete pool surface exposed to any user role.
  * `sealingInProgress` / `lastSealError` come from the queue (status + recorded
@@ -530,6 +570,7 @@ export async function runPoolSeal(jobId: string, reseal = false): Promise<void> 
     let sectionIdx = 0;
 
     while (tally[format] < need && tally[format] < need * POOL_OVERSHOOT && calls < maxCalls) {
+      await assertNotAborted(jobId); // HR cancel lands between batches
       calls++;
       callsTotal++;
       const section = contributing[sectionIdx % contributing.length];
@@ -567,6 +608,7 @@ export async function runPoolSeal(jobId: string, reseal = false): Promise<void> 
     for (const format of QUESTION_FORMATS) {
       const missing = check.shortfalls[format];
       if (!missing) continue;
+      await assertNotAborted(jobId); // cancel beats the top-up round too
       const contributing = sections.filter((s) => (s.formats[format] ?? 0) > 0);
       if (contributing.length === 0) continue;
       const batch = Math.min(POOL_BATCH_SIZE, missing);
@@ -600,6 +642,8 @@ export async function runPoolSeal(jobId: string, reseal = false): Promise<void> 
     }
   }
 
+  // Last cancellation window: once this transaction commits the pool is live.
+  await assertNotAborted(jobId);
   const itemsEncrypted = encryptSecret(JSON.stringify(items));
   await prisma.$transaction(async (tx) => {
     await tx.sealedQuestionPool.updateMany({ where: { jobId, isActive: true }, data: { isActive: false } });

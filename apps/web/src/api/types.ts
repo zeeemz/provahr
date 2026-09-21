@@ -352,7 +352,7 @@ export interface PoolStatusView {
 export interface ActivityEvent {
   id: string;
   type: 'JD_GENERATION' | 'SAMPLES_GENERATION' | 'POOL_SEAL' | 'EVALUATION';
-  status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+  status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | 'CANCELLED';
   attempts: number;
   maxAttempts: number;
   lastError: string | null;

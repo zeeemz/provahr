@@ -90,6 +90,7 @@ Company-scoped throughout. Job body fields (`title`, `department`,
 | GET | `/api/jobs/:jobId/blueprint/samples` | ADMIN, RECRUITER | → `{ samples }` — preview-only items, visible **by design**, never drawn into sessions |
 | POST | `/api/jobs/:jobId/pool/seal` | ADMIN, RECRUITER | `{}` → **202** `{ queued: true }` (worker generates ≥6× draw and seals). Errors: **404 `BLUEPRINT_NOT_FOUND`**, **409 `POOL_SEALED`**, **409 `SEAL_IN_PROGRESS`** (one seal per role at a time — retrying mid-generation no longer queues duplicates), **503 `NO_PROVIDER`** |
 | POST | `/api/jobs/:jobId/pool/reseal` | ADMIN, RECRUITER | `{}` → **202** `{ queued: true }` — deactivates the old pool **immediately** (transactional with the enqueue), then regenerates. Errors: **409 `SEAL_IN_PROGRESS`**, **503 `NO_PROVIDER`** |
+| POST | `/api/jobs/:jobId/pool/cancel` | ADMIN, RECRUITER | `{}` → `{ cancelled: true }` — aborts an in-flight seal (2026-09-21): the queue row goes to terminal `CANCELLED` (crediting the canceller in `lastError`); the worker bails out between LLM batches and **no pool is written**. Safe at any instant — the pool only materializes in the final transaction. Errors: **409 `NO_SEAL_IN_PROGRESS`** |
 | GET | `/api/jobs/:jobId/pool` | ADMIN, RECRUITER | → `{ pool: { hasActivePool, version, itemCount, sealedAt, sealingInProgress, lastSealError } }` — **counts and queue status only; no endpoint anywhere returns pool items to any role** |
 | GET | `/api/jobs/:jobId` | auth | → `{ job }` |
 | PATCH | `/api/jobs/:jobId` | ADMIN, RECRUITER | partial job body → `{ job }` |

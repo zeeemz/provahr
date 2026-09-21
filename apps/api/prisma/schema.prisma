@@ -113,6 +113,9 @@ enum QueueStatus {
   RUNNING
   DONE
   FAILED
+  // HR-aborted before completion (seal cancellation, 2026-09-21): terminal —
+  // never re-claimed, never overwritten by the worker's fail()/complete().
+  CANCELLED
 }
 
 // ─── Models ──────────────────────────────────────────────────────────────────

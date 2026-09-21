@@ -26,6 +26,8 @@ function queueStatusBadge(status: ActivityEvent['status']): string {
       return 'badge blue';
     case 'FAILED':
       return 'badge red';
+    case 'CANCELLED':
+      return 'badge amber';
     default:
       return 'badge outline'; // PENDING — waiting for the worker
   }

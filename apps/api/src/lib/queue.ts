@@ -80,9 +80,9 @@ export async function claimNext(): Promise<QueueJob | null> {
   return null;
 }
 
-/** Marks a finished job DONE. */
+/** Marks a finished job DONE — unless HR cancelled it mid-run (terminal). */
 export async function complete(id: string): Promise<void> {
-  await prisma.jobQueue.update({ where: { id }, data: { status: 'DONE' } });
+  await prisma.jobQueue.updateMany({ where: { id, status: { not: 'CANCELLED' } }, data: { status: 'DONE' } });
 }
 
 /**
@@ -96,10 +96,13 @@ export function backoffMs(attempts: number): number {
 
 /**
  * Records a failure: at `maxAttempts` the row is FAILED for good, otherwise it
- * goes back to PENDING with a backoff-scheduled `runAt`.
+ * goes back to PENDING with a backoff-scheduled `runAt`. A row HR CANCELLED
+ * mid-run stays CANCELLED — cancellation is terminal and must never be
+ * retried back onto the queue by a racing handler outcome.
  */
 export async function fail(id: string, error: unknown): Promise<void> {
-  const row = await prisma.jobQueue.findUnique({ where: { id }, select: { attempts: true, maxAttempts: true } });
+  const row = await prisma.jobQueue.findUnique({ where: { id }, select: { attempts: true, maxAttempts: true, status: true } });
+  if (row?.status === 'CANCELLED') return; // HR aborted this run — leave it terminal
   const attempts = row?.attempts ?? 0;
   const maxAttempts = row?.maxAttempts ?? 3;
   const message = String(error).slice(0, 500);

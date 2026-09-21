@@ -791,6 +791,20 @@ function PoolStep({ jobId }: { jobId: string }): JSX.Element {
     }
   }
 
+  /** Abort an in-flight generation (2026-09-21): terminal CANCELLED, no pool written. */
+  async function cancelSeal(): Promise<void> {
+    setBusy(true);
+    setFormError(null);
+    try {
+      await api.post(`/jobs/${jobId}/pool/cancel`, {});
+      await load(); // sealingInProgress flips off; Activity shows the CANCELLED row
+    } catch (err) {
+      setFormError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const sealing = pool?.pool.sealingInProgress ?? false;
   const sealFailed =
     pool !== null && !pool.pool.hasActivePool && !sealing && pool.pool.lastSealError !== null;
@@ -836,6 +850,11 @@ function PoolStep({ jobId }: { jobId: string }): JSX.Element {
         {pool !== null && pool.pool.hasActivePool && (
           <button type="button" className="danger" disabled={busy || sealing} onClick={() => void seal('/pool/reseal')}>
             {busy || sealing ? 'Re-sealing…' : 'Re-seal (destroy + regenerate)'}
+          </button>
+        )}
+        {sealing && (
+          <button type="button" className="danger" disabled={busy} onClick={() => void cancelSeal()}>
+            Cancel seal
           </button>
         )}
       </div>

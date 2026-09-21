@@ -24,12 +24,11 @@
 >    `graphify-out/`, regen at every wave gate; (d) pre-dispatch graph ritual
 >    before delegating any task.
 > 6. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc
->    --noEmit && npx vitest run` (current state: **536 passed + 17
->    CI-gated = 553**, re-verified 2026-09-21 after the marking/profile/
->    walk-in features).
+>    --noEmit && npx vitest run` (current state: **542 passed + 17
+>    CI-gated = 559**, re-verified 2026-09-21 after seal cancellation).
 
 > **Living document — updated after every work session.**
-> Last updated: 2026-09-21 (docs reconciliation sweep; candidate test profile + immediate MCQ marking + re-appearance pin earlier today; 536 passed + 17 CI-gated) · Maintained by: main harness agent
+> Last updated: 2026-09-21 (seal cancellation + Docker DNS ops fixes; docs sweep, candidate profile, marking, walk-in earlier today; 542 passed + 17 CI-gated) · Maintained by: main harness agent
 
 | | |
 |---|---|
@@ -351,6 +350,31 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-09-21 (seal cancellation — HR can shut an in-flight seal)** — Founder
+  request after a morning of slow seals on a degraded network: "no option on
+  the UI to stop sealing." Shipped: **`POST /api/jobs/:jobId/pool/cancel`**
+  (ADMIN/RECRUITER; `cancelSeal` in blueprint.service) flips the job's
+  PENDING/RUNNING `POOL_SEAL` row to a new terminal `CANCELLED` state
+  (migration **0007_queue_cancelled** — `ALTER TYPE QueueStatus ADD VALUE`),
+  crediting the canceller in `lastError`. The worker aborts **cooperatively**:
+  `runPoolSeal` re-checks the row between every LLM batch, in the top-up round,
+  and right before the final pool transaction (`assertNotAborted` → 409
+  `SEAL_CANCELLED`), so an aborted seal writes nothing and leaves the role
+  exactly as it was. CANCELLED is terminal by construction: `claimNext` only
+  claims PENDING, `fail()` no-ops on a cancelled row (a racing handler outcome
+  can never re-queue or overwrite it), `complete()` skips it (updateMany with
+  `status != CANCELLED`). Web: a red **"Cancel seal"** button appears in the
+  Pool step while sealing; the Activity feed shows `CANCELLED` in amber with
+  the canceller's name. Ops same session: Docker Desktop's daemon DNS was
+  flapping (EAI_AGAIN from containers ~2/3 of lookups after an unclean engine
+  start — the morning's "LLM provider unreachable" bursts); pinned `dns:
+  [8.8.8.8, 1.1.1.1]` on api+worker in compose, and dropped the Dockerfile's
+  `# syntax=docker/dockerfile:1` pin so builds run from local cache without
+  registry DNS. Gates: api `tsc` + vitest **542 passed + 17 CI-gated** (+6:
+  cancel route guards/scoping/state-flip, fail()/complete() CANCELLED
+  terminality), web `tsc`; live-verified the sealed 48-item pool (11:29 UTC,
+  blueprint v10, 18 LLM calls) and the mounted cancel route. Docs: **API.md**
+  (+cancel row). *(main)*
 - **2026-09-21 (docs reconciliation — post-v2 features sweep)** — Every doc
   now tells the walk-in/marking/profile story truthfully, verified against
   code: **BIBLE.md** (Last verified 2026-09-21; thesis + D5 amendment note +
