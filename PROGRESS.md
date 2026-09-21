@@ -24,11 +24,12 @@
 >    `graphify-out/`, regen at every wave gate; (d) pre-dispatch graph ritual
 >    before delegating any task.
 > 6. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc
->    --noEmit && npx vitest run` (v2 close state: **483 passed + 16
->    CI-gated = 499**, re-verified 2026-08-31 during V2-5).
+>    --noEmit && npx vitest run` (current state: **536 passed + 17
+>    CI-gated = 553**, re-verified 2026-09-21 after the marking/profile/
+>    walk-in features).
 
 > **Living document — updated after every work session.**
-> Last updated: 2026-09-21 (candidate test profile + immediate MCQ marking + re-appearance pin; 536 passed + 17 CI-gated) · Maintained by: main harness agent
+> Last updated: 2026-09-21 (docs reconciliation sweep; candidate test profile + immediate MCQ marking + re-appearance pin earlier today; 536 passed + 17 CI-gated) · Maintained by: main harness agent
 
 | | |
 |---|---|
@@ -350,6 +351,29 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-09-21 (docs reconciliation — post-v2 features sweep)** — Every doc
+  now tells the walk-in/marking/profile story truthfully, verified against
+  code: **BIBLE.md** (Last verified 2026-09-21; thesis + D5 amendment note +
+  new D22 walk-in / D23 candidate-profile-re-appearance rows — 23 decisions;
+  §3.1 module map +`modules/candidates/` +`modules/activity/` and updated
+  jobs/public/applications lines; §3.2 web map +Activity/CandidateProfile,
+  updated TestFlow/Pipeline/JobConsole lines; §5.1 walk-in note; §5.2 diagram
+  — consent meta carries `walkIn/candidate?`, the pre-consent details call,
+  submit returns `marking?` (decrypt SITE #3), +`GET /test/:token/marking`;
+  §6.1 "three decrypt sites" (+marking via the shared loader — decryptSecret
+  importers unchanged at four); §6.2 pool-DTO updated (sealingInProgress/
+  lastSealError) + the bounded marking exception argued; §6.7 rate table
+  5→7 session endpoints; §8 suite 483+16=499 → 536+17=553, 29→34 test files;
+  §9.3a history row for the 2026-09-20/21 live hardening + features).
+  **PLAN.md** (§5 step-7 diagram amended; §12 D5 amendment note + D22 + D23;
+  §12.1 post-v2 paragraph). **WALKTHROUGH.md** (Activity step, walk-in
+  branch, marking-on-submit wording, candidate-profile step, "say out loud"
+  line on deterministic-only marking). **README.md** (what-it-does table:
+  marking + profile + walk-in; screenshot caption). **DOCUMENTATION.md**
+  (inventory statuses re-dated; +WALKTHROUGH row). Earlier same-day doc
+  updates (API.md routes, TESTING.md §6 #6 amendment, SELF_HOSTING.md
+  `LLM_TIMEOUT_MS`) unchanged from their feature entries. No code changes.
+  *(main)*
 - **2026-09-21 (candidate test profile + immediate MCQ marking + re-appearance
   pin)** — Founder goal, three parts, no schema migration. **(1) Candidate
   test profile**: new `GET /api/candidates/:candidateId/profile`

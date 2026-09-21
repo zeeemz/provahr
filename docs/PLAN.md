@@ -122,8 +122,10 @@ later without a migration.
 │ Session rollup: score, strengths/gaps, structured recommendation     │
 └──────────────────────────────────────────────────────────────────────┘
                               ↓
-┌─ 7. ASYMMETRIC OUTCOME ──────────────────────────────────────────────┐
-│ CANDIDATE SEES: "Submitted ✓" — nothing else, ever                   │
+┌─ 7. ASYMMETRIC OUTCOME (amended 2026-09-21) ─────────────────────────┐
+│ CANDIDATE SEES: "Submitted ✓" + instant marking on the objective    │
+│ formats (MCQ/SWIPE — correct/incorrect, partial, the right option); │
+│ written/code = "awaiting evaluation"                                │
 │ HR SEES: X-ray — every answer, every run, every signal, every        │
 │ verdict, AI flags — then moves the candidate through the human       │
 │ pipeline: Applied → Test → Review → Interview → Offer → Hired        │
@@ -452,7 +454,7 @@ Phases 1–3 are demoable standalone; 4–8 form the candidate loop (mobile in 6
 | D2 | AI-cheating policy | **Flag for human review — never auto-reject** |
 | D3 | Detection depth v1 | Passive signals + post-hoc LLM analysis; **no webcam/screen recording** |
 | D4 | Test formats v1 | **Swipe MCQ (per-option like/dislike)** + classic MCQ + written + code/bash; per-candidate randomization; bounded review pass with per-question revise/replay |
-| D5 | Evaluation visibility | Candidate: submission status only. HR: full X-ray incl. code, runs, signals, AI verdicts |
+| D5 | Evaluation visibility | Candidate: submission status only. HR: full X-ray incl. code, runs, signals, AI verdicts. *Amended 2026-09-21: submit-time marking for the objective formats (MCQ/SWIPE) is candidate-visible (deterministic, post-submit, correct option shown); written/code verdicts and all HR evidence stay HR-only* |
 | D6 | Tenancy | Single company per install; admin connects own LLM incl. **own Azure OpenAI tenant**. *Superseded in part by D18 (2026-08-29): the install is a multi-company platform; the admin-owns-the-LLM aspect lives on per tenant (D20)* |
 | D7 | Stack | **TypeScript end-to-end** (Node API + worker, React web) |
 | D8 | License | **AGPL-3.0-only** (founder switch from Apache-2.0, 2026-09-02: keeps SaaS forks open) |
@@ -469,12 +471,22 @@ Phases 1–3 are demoable standalone; 4–8 form the candidate loop (mobile in 6
 | D19 | **Runtime auth configuration** (founder) | Auth mode + Keycloak settings become DATA, not env: a platform settings row plus per-company Keycloak config (issuer/audience), switchable in the portal. Env vars remain boot-time fallbacks. The "edit .env and restart" answer is retired |
 | D20 | **Company-scoped LLM providers** | LlmProvider gains `companyId`; each tenant configures its own provider keys. Platform-level defaults may come later |
 | D21 | **Company-scoped sandbox templates** | Tenants define sandbox image templates per language (e.g. a Java exercise image), stored per company; the builder's image allow-list resolves company template → platform default. Supersedes the global allow-list aspect of D10 |
+| D22 | **Walk-in facilitated testing** (founder, 2026-09-20) | A candidate who arrives at the office is created BY HR: `POST /api/jobs/:jobId/walkin` (name/email/phone) → application with `source: WALK_IN` + HR-credited stage event → the one-time test link is minted and opened on the spot. The candidate completes their remaining details (phone/resume/links/cover letter) via the token-gated `POST /api/public/test/:token/details` BEFORE consent — locked once the clock starts. Duplicate semantics identical to public apply (409 before any mint) |
+| D23 | **Candidate test profile + unrestricted re-appearance** (founder, 2026-09-21) | `GET /api/candidates/:candidateId/profile` aggregates one person's cross-role story for the company (applications, per-test scores/strengths/gaps, per-format verdict tallies, AI-flag totals) — computed on read from evaluation evidence, so it exists the moment a test completes and stays consistent with voids/renormalization. A candidate rejected on one role may apply to any other role at any time (pinned by test); only same-role re-apply is a 409 |
 
 ## 12.1 v2 delivery plan (SaaS evolution — appended 2026-08-29)
 
 **v2 COMPLETE (2026-08-31).** Every wave shipped with tests, a live E2E
 regression pass and a git checkpoint; suite at close: 483 passed + 16
 CI-gated = 499.
+
+**Post-v2 (2026-09-20/21, founder demo prep):** live hardening + founder
+features — pool-seal timeout fix (`LLM_TIMEOUT_MS`, smaller batches,
+one-seal-at-a-time), the in-app Activity feed (`GET /api/activity`), walk-in
+facilitated testing (D22), candidate test profiles + unrestricted
+re-appearance (D23), and the D5 objective-marking amendment. No schema
+migrations; suite after: **536 passed + 17 CI-gated = 553**. History in
+[PROGRESS.md](../PROGRESS.md) §6.
 
 | Phase | Deliverable | Status |
 |---|---|---|

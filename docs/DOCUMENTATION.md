@@ -28,16 +28,17 @@ in every spec; the main agent verifies it at every phase gate.
 
 | File | Purpose | **Must be updated when…** | Status |
 |---|---|---|---|
-| [`docs/BIBLE.md`](BIBLE.md) | **SSOT hub / map of record** — product, architecture, module map, data flow, sequence diagrams, security model, ops, testing pointer, history, and the topic→doc table | Any structural change to the system, or any §10 canonical doc's scope | ✅ created 2026-08-29 |
-| `README.md` | Front door: what/why, quickstart, structure, roadmap | Quickstart, structure, or status changes | ✅ current (2026-08-29) |
-| `PROGRESS.md` | Master tracker: phases, subtasks, changelog, risks, QA finding tables | **Every work session** | ✅ current (2026-08-29) |
-| `docs/PLAN.md` | Product plan of record + ADR/decision log (§12) | Any product/architecture decision is made or changed | ✅ v4 current; §9 route table reconciled with the routers 2026-08-29 |
-| `docs/API.md` | Endpoint reference (method, path, auth/role, shapes, error codes) | Any route/DTO change | ✅ created 2026-08-29 (transcribed from routers) |
-| `docs/DATA_MODEL.md` | Entities and field-level docs | Prisma schema changes | ✅ current (2026-08-29 — rewritten against schema + migration 0001) |
-| `docs/TESTING.md` | Test strategy, tiers, never-regress list | Test tiers/tools/policies change | ✅ v1 current (2026-08-29) |
-| `docs/SELF_HOSTING.md` | Install env, provider config (incl. Azure tenant), proxy/rate-limit notes | Deploy story or config surface changes | ✅ current (2026-08-29) |
-| `docs/RBAC.md` | Dual-mode auth (local JWT vs Keycloak OIDC), role mapping, Azure AD brokering | Identity surface changes | ✅ current (2026-08-29) |
-| `docs/DOCUMENTATION.md` | This file — the docs system itself | Doc inventory or rules change | ✅ v2 current (2026-08-29) |
+| [`docs/BIBLE.md`](BIBLE.md) | **SSOT hub / map of record** — product, architecture, module map, data flow, sequence diagrams, security model, ops, testing pointer, history, and the topic→doc table | Any structural change to the system, or any §10 canonical doc's scope | ✅ re-verified 2026-09-21 (walk-in/activity/profile/marking; D22–D23; suite 553) |
+| `README.md` | Front door: what/why, quickstart, structure, roadmap | Quickstart, structure, or status changes | ✅ current (2026-09-21) |
+| `PROGRESS.md` | Master tracker: phases, subtasks, changelog, risks, QA finding tables | **Every work session** | ✅ current (2026-09-21) |
+| `docs/PLAN.md` | Product plan of record + ADR/decision log (§12) | Any product/architecture decision is made or changed | ✅ current (2026-09-21 — D5 amendment, D22–D23, post-v2 note in §12.1) |
+| `docs/API.md` | Endpoint reference (method, path, auth/role, shapes, error codes) | Any route/DTO change | ✅ current (2026-09-21 — walk-in, details, marking, candidates, activity, pool status) |
+| `docs/DATA_MODEL.md` | Entities and field-level docs | Prisma schema changes | ✅ unchanged since 2026-08-29; no migrations 2026-09-20/21 (walk-in/mark/profile are computed surfaces) |
+| `docs/TESTING.md` | Test strategy, tiers, never-regress list | Test tiers/tools/policies change | ✅ current (2026-09-21 — §6 #6 marking amendment) |
+| `docs/SELF_HOSTING.md` | Install env, provider config (incl. Azure tenant), proxy/rate-limit notes | Deploy story or config surface changes | ✅ current (2026-09-20 — `LLM_TIMEOUT_MS`) |
+| `docs/RBAC.md` | Dual-mode auth (local JWT vs Keycloak OIDC), role mapping, Azure AD brokering | Identity surface changes | ✅ current (2026-08-29; no identity changes since) |
+| `docs/DOCUMENTATION.md` | This file — the docs system itself | Doc inventory or rules change | ✅ v2 current (2026-09-21) |
+| `docs/WALKTHROUGH.md` | Founder demo walkthrough | The demo flow changes | ✅ current (2026-09-21 — walk-in, marking, profile, activity steps) |
 | `CONTRIBUTING.md` · `SECURITY.md` · `CODE_OF_CONDUCT.md` · `NOTICE.md` · `LICENSE` | Project mechanics | Process/security posture changes | ✅ current |
 
 `docs/ARCHITECTURE.md`, promised in v1 of this inventory, was never created —

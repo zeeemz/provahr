@@ -13,8 +13,8 @@ AI works for HR — candidates prove their skill. Hiring runs on proof, not poli
 |---|---|---|
 | Describe a person (LinkedIn screenshot, URLs, notes) → AI drafts the JD | Take a real, role-specific skill test — no fluff | Onboard companies (tenants) with their own admins |
 | Design a test blueprint; the platform seals a question pool **nobody can enumerate** — not even admins | Code answers execute in a hardened sandbox against hidden cases | Each tenant brings its own LLM keys (OpenAI / Anthropic / Azure / Ollama) |
-| See the **X-ray**: verdicts, sandbox runs, AI-likelihood flags, signals | See only *"Submitted ✓"* — no scores, no feedback, ever | Per-tenant Keycloak realms, sandbox image templates, team RBAC |
-| Reject with a mandatory reason — AI can **never** reject | Swipe-style judgments on mobile; standard questionnaire on web | Two-tier AI prompts: platform rules (root) + role-specific (HR) |
+| See the **X-ray**: verdicts, sandbox runs, AI-likelihood flags, signals — plus each candidate's cross-role **test profile** | See *"Submitted ✓"* with **instant marking on multiple-choice answers** (written/code go to human evaluation) | Per-tenant Keycloak realms, sandbox image templates, team RBAC |
+| Reject with a mandatory reason — AI can **never** reject | Swipe-style judgments on mobile; walk-ins tested on the spot (HR checks them in) | Two-tier AI prompts: platform rules (root) + role-specific (HR) |
 
 ## Demo videos
 
@@ -54,7 +54,7 @@ AI works for HR — candidates prove their skill. Hiring runs on proof, not poli
 | | |
 |---|---|
 | ![Code task](docs/assets/screenshots/f023.png) | ![Submitted](docs/assets/screenshots/f026.png) |
-| *Code task — executed in a hardened Docker sandbox after submission* | *"Submitted ✓" — the candidate sees nothing else, ever* |
+| *Code task — executed in a hardened Docker sandbox after submission* | *"Submitted ✓" + instant marking on the multiple-choice part* |
 
 ### The HR X-ray
 

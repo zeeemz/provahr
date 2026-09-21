@@ -1,6 +1,6 @@
 # The ProvaHR Bible — the map of record
 
-**Last verified: 2026-08-31**
+**Last verified: 2026-09-21**
 
 This document is the single entry point to ProvaHR: what the product is, how the
 system is actually built, how data flows through the core loop, and where every
@@ -22,16 +22,20 @@ in polished, indistinguishable applications. ProvaHR flips the asymmetry —
 **AI works for HR** (drafts the JD, generates the test, runs the sandbox,
 evaluates the answers), **candidates prove their skill with their own brain**
 (a real, role-specific, proctored test on web or phone), and **the evaluation is
-asymmetric by design**: the candidate sees `submitted ✓` and nothing else, ever;
-HR sees a full X-ray (answers, execution results, verdicts, signals, AI flags)
-and then makes every decision themselves. Self-hosted **multi-tenant SaaS
+asymmetric by design**: at submit the candidate sees `submitted ✓` plus
+immediate deterministic marking for the objective formats only (MCQ/SWIPE —
+founder amendment, D5 note, 2026-09-21); prose, code and verdicts stay opaque
+to them, while HR sees a full X-ray (answers, execution results, verdicts,
+signals, AI flags) and a cross-role candidate profile, then makes every
+decision themselves. Self-hosted **multi-tenant SaaS
 platform** (D18): one install hosts many companies, each with its own LLM keys
 (D20), its own Keycloak realm (D19) and its own sandbox images (D21).
 One sentence: *AI does the grunt work for HR — and does the candidate's work
 for nobody.* ([docs/PLAN.md](PLAN.md) §1)
 
-**The 21 founder-confirmed decisions** (full text: PLAN §12; D1–D17 confirmed
-2026-08-28, D18–D21 confirmed 2026-08-29 during the founder's live test):
+**The 23 founder-confirmed decisions** (full text: PLAN §12; D1–D17 confirmed
+2026-08-28, D18–D21 confirmed 2026-08-29 during the founder's live test,
+D22–D23 confirmed 2026-09-20/21 during founder demo prep):
 
 | # | Decision | One line |
 |---|---|---|
@@ -39,7 +43,7 @@ for nobody.* ([docs/PLAN.md](PLAN.md) §1)
 | D2 | AI-cheating policy | Flag for human review — **never auto-reject** |
 | D3 | Detection depth v1 | Passive signals + post-hoc LLM analysis; no webcam/screen recording |
 | D4 | Test formats | Swipe MCQ (per-option like/dislike) + MCQ + written + code/bash; randomization; bounded review pass |
-| D5 | Evaluation visibility | Candidate: submission status only. HR: full X-ray |
+| D5 | Evaluation visibility | Candidate: submission status only. HR: full X-ray. *Amended 2026-09-21: submit-time marking for the objective formats (MCQ/SWIPE) is candidate-visible (`marking.service`); prose/code verdicts stay HR-only* |
 | D6 | Tenancy | ~~Single company per install~~ → **superseded in part by D18**: the install is a multi-company platform |
 | D7 | Stack | TypeScript end-to-end (Node API + worker, React web, RN mobile) |
 | D8 | License | Apache-2.0 |
@@ -56,6 +60,8 @@ for nobody.* ([docs/PLAN.md](PLAN.md) §1)
 | D19 | Runtime auth config | Auth mode + Keycloak settings are **data** (PlatformSettings + CompanyAuthConfig), switchable in the portal — env vars remain boot-time fallbacks |
 | D20 | Company-scoped LLM providers | `LlmProvider.companyId`; each tenant brings its own keys; one active per company |
 | D21 | Company-scoped sandbox templates | Per-company sandbox image templates per language; builder resolves company template → platform default under identical hardening |
+| D22 | Walk-in facilitated testing | HR creates the application on-site for an office visitor (`POST /jobs/:id/walkin`, `source: WALK_IN`, HR-credited audit event) and opens the one-time test link on the spot; the candidate completes their own details pre-consent via the token-gated details endpoint |
+| D23 | Candidate test profile + unrestricted re-appearance | A cross-role profile per candidate (aggregate over applications, sessions, assessments, evaluations — `GET /candidates/:id/profile`, computed on read); a candidate rejected on one role applies to any other role freely — only same-role re-apply is blocked |
 
 **Roles:** `SUPER_ADMIN` (platform owner: tenants, platform settings — local
 sign-in always, no company), then per company `ADMIN` (providers, users,
@@ -182,9 +188,11 @@ link).
 | `modules/auth/` | Platform `register` (super admin, 409 once installed), `login` (local mode), `me`, `GET /mode` (runtime mode + perCompany flag) |
 | `modules/platform/` | The super-admin console API (V2-1..4, D18/D19): company CRUD + first-ADMIN wizard (`companies.*`), runtime settings (`settings.*`, 10s-cached mode read), `requireSuperAdmin` middleware, read-only oversight of all tenants' auth-configs and sandbox-templates |
 | `modules/users/` | Company user list/create (admin) |
-| `modules/jobs/` | The jobs spine: CRUD + status + pipeline listing (`jobs.*`), role intake → JD (`jd.*`), blueprint + samples + sealed pool (`blueprint.*`) |
-| `modules/public/` | Anonymous surface: board, detail, apply (`public.*`); consent meta + the whole candidate session engine (`session.*`) |
-| `modules/applications/` | Application detail/stage/status (`applications.*`), evaluation producer + X-ray + void (`evaluation.*`) |
+| `modules/jobs/` | The jobs spine: CRUD + status + pipeline listing (`jobs.*`), role intake → JD (`jd.*`), blueprint + samples + sealed pool (`blueprint.*`), walk-in application + test-link mint (`walkInApply` in applications.service, route in jobs router — D22) |
+| `modules/public/` | Anonymous surface: board, detail, apply (`public.*`); consent meta + the whole candidate session engine (`session.*`); walk-in detail completion + immediate post-submit objective marking (`marking.service` — D5 amendment, D22) |
+| `modules/applications/` | Application detail/stage/status (`applications.*`), evaluation producer + X-ray + void (`evaluation.*`), shared apply/walk-in application core (`upsertCandidateAndApply`, `walkInApply`) |
+| `modules/candidates/` | Candidate test profile (D23): company-scoped cross-role aggregate computed on read |
+| `modules/activity/` | Background-work feed (2026-09-20): the company's `job_queue` as a live log, raw-SQL company-scoped |
 | `modules/interviews/` | Interview update + scorecard submit |
 | `modules/stats/` | Dashboard aggregates for the company |
 | `modules/admin/` | Company-scoped admin API: LLM provider CRUD + activate + live smoke test (`llm-providers.*`, V2-2), Keycloak/OIDC config GET/PUT (`auth-config.*`, V2-3), sandbox image templates GET/PUT (`sandbox-templates.*`, V2-4) — keys redacted, everything filtered by `req.user.companyId` |
@@ -214,7 +222,7 @@ link).
 | `auth/AuthContext.tsx` | Login/session state for the HR console |
 | `public/JobBoard.tsx` | Public board (`/`) |
 | `public/JobDetail.tsx` | Job detail + apply form; renders the one-time link with copy + unrecoverable warning |
-| `public/TestFlow.tsx` | Candidate test flow (`/test/:token`): consent → session (all 4 formats, autosave, review pass, countdown + auto-submit in grace) → `Submitted ✓` |
+| `public/TestFlow.tsx` | Candidate test flow (`/test/:token`): [walk-in details step] → consent → session (all 4 formats, autosave, review pass, countdown + auto-submit in grace) → `Submitted ✓` + immediate objective-marking table (MCQ/SWIPE marked; written/code "awaiting evaluation") |
 | `hr/Login.tsx`, `hr/Register.tsx` | Local-mode auth pages (register = platform bootstrap, super admin) |
 | `platform/PlatformPage.tsx` | Super-admin console (`/app/platform`): companies table + "New company" wizard modal (tenant + first ADMIN in one POST), auth-mode switch card, all-tenant sandbox-template oversight |
 | `admin/ProvidersPage.tsx` | Company LLM providers (V2-2): CRUD, activate, smoke test |
@@ -222,9 +230,11 @@ link).
 | `admin/SettingsPage.tsx` | Company settings (V2-3/V2-4): live auth-mode readout, the company's Keycloak config (issuer/audience/enabled), per-language sandbox image templates |
 | `hr/Dashboard.tsx` | Company dashboard (`GET /api/stats`) |
 | `hr/JobsPage.tsx` | Job list → open console |
-| `hr/JobConsole.tsx` | The PLAN §4 loop on one page: JD poll/edit/approve → blueprint → samples → seal → publish |
-| `hr/Pipeline.tsx` | Per-job pipeline board (`GET /api/jobs/:id/applications`) |
-| `hr/ApplicationDetail.tsx` | Application detail + evaluation X-ray + human stage/status moves + item void |
+| `hr/JobConsole.tsx` | The PLAN §4 loop on one page: JD poll/edit/approve → blueprint → samples → seal (live progress + last-failure surfacing) → publish |
+| `hr/Pipeline.tsx` | Per-job pipeline board (`GET /api/jobs/:id/applications`) + "+ Walk-in candidate" (D22): HR enters identity → test link minted → open on the spot |
+| `hr/ApplicationDetail.tsx` | Application detail + evaluation X-ray + human stage/status moves + item void; links to the candidate profile |
+| `hr/CandidateProfile.tsx` | Candidate test profile (D23): aggregate tiles, per-format tallies, cross-role history |
+| `hr/Activity.tsx` | Live background-work feed (`GET /api/activity`, 3s auto-refresh): queue rows with status/retries/errors |
 | `components/ui.tsx`, `styles.css` | Shared UI atoms and styling |
 
 ### 3.3 `apps/mobile/src` (Expo candidate app)
@@ -369,8 +379,18 @@ HR(web)         API(/api/jobs)            job_queue         WORKER            LL
   │ GET /:id/pool   │ counts ONLY            │                │                 │
   ├────────────────►│ (hasActivePool, itemCount, sealedAt)    │                 │
   │ POST /:id/status {OPEN} → job OPEN, visible on public board                │
-  └─────────────────┴────────────────────────┴────────────────┴─────────────────┘
+  └─────────────────────────┴────────────────────────┴────────────────────────┴─────────────────┘
 ```
+
+**Walk-in entry (D22)** — the same loop's office variant: instead of the public
+board, HR opens the job's Pipeline page and clicks **"+ Walk-in candidate"** →
+`POST /api/jobs/:id/walkin` `{name, email, phone?}` creates the application
+(`source: WALK_IN`, stage event credits the HR user) and mints the SAME
+one-time test link (identical duplicate semantics — 409 before any mint). HR
+clicks "Open the test now" on the office machine; the candidate's flow then
+joins §5.2 at the details step. Duplicates get the same clean 409
+`ALREADY_APPLIED` as the public apply — before any token is minted.
+
 
 ### 5.2 Candidate: apply → token → consent → start → answers/signals → submit
 
@@ -388,7 +408,11 @@ Candidate(web/mobile)  API(/api/public)                DB                     jo
   │ GET /test/:token       │ (20/min/IP; uniform 404: bad shape ≡ unknown)      │
   ├───────────────────────►│ hash lookup ──────────────►│ test_sessions          │
   │◄───────────────────────┤ {status, expiresAt, jobTitle, timeLimitMin,        │
-  │                        │  alreadyUsed} — NEVER items                        │
+  │                        │  alreadyUsed, walkIn, candidate?} — NEVER items   │
+  │ [walk-in link only] POST /test/:token/details (pre-consent, ISSUED only)   │
+  ├───────────────────────►│ candidate self-completes phone/resume/links/      │
+  │                        │ cover letter (name/email HR-owned; 409 after     │
+  │                        │ start) → candidate/application update            │
   │ POST /test/:token/start│ (60/min session bucket)    │                        │
   ├───────────────────────►│ decrypt pool — SITE #1 ───►│ sealed_question_pools │
   │                        │ draw (seed session:pool)   │                        │
@@ -404,7 +428,12 @@ Candidate(web/mobile)  API(/api/public)                DB                     jo
   │ POST /test/:token/submit (≤60s late = grace)        │                        │
   ├───────────────────────►│ status SUBMITTED ─────────►│ test_sessions         │
   │                        │ enqueue EVALUATION ────────┼───────────────────────►
-  │◄───────────────────────┤ { submitted: true }  — nothing else, ever          │
+  │                        │ objective marking: decrypt pool — SITE #3 (shared │
+  │                        │ loader; MCQ/SWIPE truth only, voided NOT_COUNTED) │
+  │◄───────────────────────┤ { submitted: true, marking? } — MCQ/SWIPE marked  │
+  │                        │   (correct/incorrect, partial, the right option); │
+  │                        │   written/code = PENDING_EVALUATION (D5 amendment)│
+  │ GET /test/:token/marking — post-submit re-view, same shape, uniform 404    │
   └────────────────────────┴────────────────────────────┴───────────────────────┘
 ```
 
@@ -514,26 +543,35 @@ Client        requireAuth.ssoAuth          CompanyAuthConfig / env      Keycloak
 The invariant list is [docs/TESTING.md](TESTING.md) §6; this is where each one
 lives in code.
 
-### 6.1 The two (and only two) pool decrypt sites
+### 6.1 The three (and only three) pool decrypt sites
 
 | # | Site | When | File |
 |---|---|---|---|
 | 1 | Session-start draw | fresh start only (re-entry re-reads `session_questions`; the pool is NOT decrypted again) | `apps/api/src/modules/public/session.service.ts` — `parsePoolItems()` called from `startSession()` (~line 261) |
 | 2 | Evaluation truth | worker-side, once per EVALUATION run, only after `SUBMITTED` | `apps/api/src/modules/applications/evaluation.service.ts` — `loadActivePoolItems()` (~line 131) |
+| 3 | Post-submit marking | candidate-facing, once per marking read, only after `SUBMITTED`; reuses site #2's shared loader (`loadActivePoolItems`) and touches MCQ/SWIPE truth only | `apps/api/src/modules/public/marking.service.ts` — `objectiveMarking()` |
 
-`decryptSecret` (`lib/crypto.ts`) is imported by exactly four sanctioned files
-(crypto, the LLM provider loader, the admin last-4 redactor, and the two sites
-above). Everything else must not reach it — this was verified structurally at
-the wave-4/6 gates.
+`decryptSecret` (`lib/crypto.ts`) is still imported by exactly four sanctioned
+files (the LLM provider loader, the admin last-4 redactor, and session +
+evaluation services) — the marking site rides the evaluation service's loader
+rather than importing crypto itself. Everything else must not reach it — this
+was verified structurally at the wave-4/6 gates.
 
 ### 6.2 Sealed-pool invisibility (structural + tested)
 
 - **Structural**: every pool-facing read selects **scalars only** — `activePoolFor()`
   in `modules/jobs/blueprint.service.ts`, the apply check in
   `modules/public/public.service.ts`, the board's existence probe. The
-  `itemsEncrypted` blob never enters the API process outside the two sites
+  `itemsEncrypted` blob never enters the API process outside the three sites
   above (QA wave-4 F4). The only pool DTO any role can see is
-  `{hasActivePool, version/poolVersion, itemCount, sealedAt}`.
+  `{hasActivePool, version/poolVersion, itemCount, sealedAt, sealingInProgress,
+  lastSealError}` — status and queue metadata, still no items.
+- **The marking exception, bounded (D5 amendment, 2026-09-21):** post-submit,
+  `marking.service` reveals the correct option / partial score of the
+  OBJECTIVE items **this finished session drew** — never rubrics, hidden cases,
+  or items outside the session's draw. A single-use, already-submitted session
+  is the one safe moment for that truth: the pool is ≥6× the draw and re-sealing
+  ages any leak out.
 - **Tested**: the canary-seeded route matrix
   `apps/api/tests/integration/blueprint-pool.test.ts` seeds known plaintext into
   the pool and asserts **no endpoint, for any role (admin included), ever
@@ -603,7 +641,7 @@ failed-with-note (`SANDBOX_V1_NO_STDIN`).
 | `POST /api/setup/install` | 10/hour/IP | `modules/setup/setup.router.ts` |
 | `POST /api/public/jobs/:id/apply` | 20/min/IP | `modules/public/public.router.ts` (own bucket) |
 | `GET /api/public/test/:token` | 20/min/IP | same (own bucket — probing can't eat apply budget) |
-| the 5 session endpoints | 60/min/IP (shared bucket) | same |
+| the 7 session endpoints (start, view, answers, signals, submit, walk-in details, marking) | 60/min/IP (shared bucket) | same |
 
 Board/detail GETs are unlimited (cheap, no secrets). Limiter state lives in the
 process heap — fine for single-process v1; a shared store is a backlog item
@@ -733,13 +771,13 @@ First CI run is a tracked post-v2 backlog item.
 ## 8. Testing
 
 Tier table (T1 unit → T8 property-based) and the per-phase contract:
-[docs/TESTING.md](TESTING.md). The suite today: **483 passed + 16 skipped
-= 499 total** (the 16 = the CI-gated integration tier, which runs for real in
-CI). All tests live in `apps/api/tests/*.test.ts` (29 files: queue, urlFetch,
-jd/blueprint/session/evaluation routes, crypto, llm adapters, oidc, sandbox
-builder + judge + templates, scoring, draw, tokens, setup, admin, platform
-routes, auth-multitenant, apply, pipeline, jobStatus, …) plus
-`apps/api/tests/integration/blueprint-pool.test.ts`.
+[docs/TESTING.md](TESTING.md). The suite today: **536 passed + 17 skipped
+= 553 total** (the 17 = the CI-gated integration tier, which runs for real in
+CI). All tests live in `apps/api/tests/*.test.ts` (34 files: queue, urlFetch,
+jd/blueprint/session/evaluation/marking/candidates/activity/walkin routes,
+crypto, llm adapters, oidc, sandbox builder + judge + templates, scoring,
+draw, tokens, setup, admin, platform routes, auth-multitenant, apply, pipeline,
+jobStatus, …) plus `apps/api/tests/integration/blueprint-pool.test.ts`.
 
 **The repeat-run discipline** (process lesson, wave 2): a single green run of a
 suite touching randomness proves nothing — gates run the full suite repeatedly
@@ -796,6 +834,21 @@ regression pass, and a git checkpoint; details in [PROGRESS.md](../PROGRESS.md).
 | V2-3 | Runtime per-company Keycloak: `CompanyAuthConfig` (migration 0004, enabled-issuer partial unique), multi-issuer middleware, portal switch + company config UI, super-admin carve-outs | Lockout carve-out **live-proven**: with SSO on, the super admin still signs in locally while company locals get `SSO_MODE_ACTIVE`; the mode switch verified effective on the very next request (no restart) |
 | V2-4 | Company sandbox templates: `SandboxTemplate` (migration 0005), `lib/sandbox/templates.ts` resolution + safe-ref grammar, parameterized exact-prefix hardening, company + platform UIs | Template save + unsafe-image reject verified live; the hardened argv is byte-identical under an override (parameterized exact-prefix — the default argv is itself rejected in override mode, so a stale prefix can never pass) |
 | V2-5 | Docs reconciliation (this sweep): every doc tells the platform story | — |
+
+### 9.3a Founder-demo live hardening + features (2026-09-20 → 2026-09-21)
+
+Demo prep on the live stack surfaced real failures and three founder features,
+each shipped test-first same-day (details: [PROGRESS.md](../PROGRESS.md)
+changelog):
+
+| What | Story |
+|---|---|
+| Pool-seal timeout fix | Every seal batch (10 items / 8k tokens) died at the fixed 60s `postJson` ceiling against a real provider ("LLM provider unreachable" — 18 queued seals grinding silently); `LLM_TIMEOUT_MS` env knob + batch 10→4 + one-seal-at-a-time 409 + live seal progress/failure in the UI. Verified live: 84-item pool sealed via z.ai glm-5.3, 29 LLM calls, 18 min |
+| Activity feed | "Logs in ProvaHR": `GET /api/activity` + the `/app/activity` page turn `job_queue` into a company-scoped live feed (status chips, retries, last error) |
+| Walk-in flow (D22) | HR-facilitated on-site testing: `POST /jobs/:id/walkin` + candidate detail completion via the test token + Pipeline UI handoff |
+| Candidate profile + re-appearance (D23) | `GET /candidates/:id/profile` + `/app/candidates/:id`: cross-role aggregate computed on read; rejection on one role blocks nothing (pinned by test) |
+| Immediate MCQ marking (D5 amendment) | Submit response + `GET /test/:token/marking` mark MCQ/SWIPE deterministically (pool decrypt site #3); written/code stay pending evaluation |
+
 
 ### 9.4 Post-MVP / post-v2 backlog (from PROGRESS.md)
 
