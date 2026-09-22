@@ -93,6 +93,10 @@ No secrets required for green CI. Real-provider smoke tests run only when
    outcome of a finished, single-use session. Evaluations (LLM verdicts,
    sandbox results, AI-likelihood, collusion) remain HR-only.
 7. **Sandbox containment** — network egress fails inside the executor (T4).
+8. **Audit-trail permanence** — a role that has ever been published can never
+   be deleted (`409 JOB_NOT_DRAFT`, `jobs.service.deleteJob`); DRAFT deletion
+   flips the draft's in-flight queue rows to terminal CANCELLED before the
+   cascade (T3 `jobs-routes.test.ts`).
 
 ## 7. Review rules
 

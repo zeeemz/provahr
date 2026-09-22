@@ -61,8 +61,29 @@ export async function updateJob(user: AuthUser, jobId: string, input: UpdateJobI
 }
 
 export async function deleteJob(user: AuthUser, jobId: string) {
-  await getJob(user, jobId);
-  await prisma.job.delete({ where: { id: jobId } }); // applications cascade
+  const job = await getJob(user, jobId); // scope check
+  if (job.status !== 'DRAFT') {
+    // A published role carries applications and the append-only stage-event
+    // audit trail (fair-hiring, PLAN §8) — it is closed, never deleted.
+    throw new AppError(
+      409,
+      'Only draft roles can be deleted. Close the role instead once it has been published.',
+      'JOB_NOT_DRAFT',
+    );
+  }
+  // Cancel any in-flight work for this draft (JD generation, samples, a
+  // running seal) BEFORE the delete: the rows flip to terminal CANCELLED —
+  // the same contract as POST /:jobId/pool/cancel — and the worker's guards
+  // (assertNotAborted, the CANCELLED checks in complete()/fail()) turn the
+  // mid-flight handler into a no-op, so deleting under a running seal is safe.
+  await prisma.jobQueue.updateMany({
+    where: {
+      status: { in: ['PENDING', 'RUNNING'] },
+      payload: { path: ['jobId'], equals: jobId },
+    },
+    data: { status: 'CANCELLED', lastError: `Draft deleted by ${user.name}` },
+  });
+  await prisma.job.delete({ where: { id: jobId } }); // blueprint/pools/samples cascade
 }
 
 export async function setJobStatus(user: AuthUser, jobId: string, to: JobStatus) {

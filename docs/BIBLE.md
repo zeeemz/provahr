@@ -33,9 +33,10 @@ platform** (D18): one install hosts many companies, each with its own LLM keys
 One sentence: *AI does the grunt work for HR — and does the candidate's work
 for nobody.* ([docs/PLAN.md](PLAN.md) §1)
 
-**The 23 founder-confirmed decisions** (full text: PLAN §12; D1–D17 confirmed
+**The 24 founder-confirmed decisions** (full text: PLAN §12; D1–D17 confirmed
 2026-08-28, D18–D21 confirmed 2026-08-29 during the founder's live test,
-D22–D23 confirmed 2026-09-20/21 during founder demo prep):
+D22–D23 confirmed 2026-09-20/21 during founder demo prep, D24 confirmed
+2026-09-21 during VM first-run):
 
 | # | Decision | One line |
 |---|---|---|
@@ -62,6 +63,7 @@ D22–D23 confirmed 2026-09-20/21 during founder demo prep):
 | D21 | Company-scoped sandbox templates | Per-company sandbox image templates per language; builder resolves company template → platform default under identical hardening |
 | D22 | Walk-in facilitated testing | HR creates the application on-site for an office visitor (`POST /jobs/:id/walkin`, `source: WALK_IN`, HR-credited audit event) and opens the one-time test link on the spot; the candidate completes their own details pre-consent via the token-gated details endpoint |
 | D23 | Candidate test profile + unrestricted re-appearance | A cross-role profile per candidate (aggregate over applications, sessions, assessments, evaluations — `GET /candidates/:id/profile`, computed on read); a candidate rejected on one role applies to any other role freely — only same-role re-apply is blocked |
+| D24 | Draft-only role deletion | `DELETE /jobs/:id` removes a **DRAFT** role only — in-flight queue work for it is cancelled first (terminal `CANCELLED`, same worker contract as seal cancel), then job/JD/blueprint/pools cascade. A role that was ever published is never deleted (applications + append-only audit trail = close it instead) |
 
 **Roles:** `SUPER_ADMIN` (platform owner: tenants, platform settings — local
 sign-in always, no company), then per company `ADMIN` (providers, users,

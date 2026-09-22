@@ -253,7 +253,9 @@ router.patch(
   }),
 );
 
-/** Delete a job and its applications (recruiter and admin). */
+/** Delete a DRAFT role (recruiter and admin) — cancels any in-flight
+ *  generation for it and cascades the blueprint/pool; 409 JOB_NOT_DRAFT
+ *  once it has ever been published (close it instead). */
 router.delete(
   '/:jobId',
   requireAuth,

@@ -21,6 +21,9 @@ export default function JobsPage(): JSX.Element {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<Job | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,12 +43,29 @@ export default function JobsPage(): JSX.Element {
     };
   }, [reloadKey]);
 
+  async function confirmDelete(): Promise<void> {
+    if (deleteTarget === null) return;
+    setDeleting(true);
+    setActionError(null);
+    try {
+      await api.del(`/jobs/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setActionError(errMessage(err));
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <main className="page">
       <h1>Roles</h1>
       <p className="sub">Intake a role from a reference person, or manage the pipeline of an existing one.</p>
 
       {error !== null && <ApiErrorScreen err={error} />}
+      {actionError !== null && <p className="form-error">{actionError}</p>}
       {error === null && jobs === null && <Spinner label="Loading roles…" />}
 
       {jobs !== null && (
@@ -58,12 +78,13 @@ export default function JobsPage(): JSX.Element {
                 <th>JD</th>
                 <th>Applications</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {jobs.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="muted">
+                  <td colSpan={6} className="muted">
                     No roles yet — start one from a reference person below.
                   </td>
                 </tr>
@@ -84,6 +105,19 @@ export default function JobsPage(): JSX.Element {
                   <td>{job.jdStatus ? <span className="badge outline">{humanize(job.jdStatus)}</span> : <span className="muted">—</span>}</td>
                   <td>{job._count?.applications ?? 0}</td>
                   <td className="muted">{fmtDate(job.createdAt)}</td>
+                  <td>
+                    {job.status === 'DRAFT' && isRecruiterPlus(user) ? (
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => setDeleteTarget(job)}
+                      >
+                        Delete
+                      </button>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -96,7 +130,47 @@ export default function JobsPage(): JSX.Element {
       ) : (
         <p className="hint">Role intake and publishing require the recruiter or admin role.</p>
       )}
+
+      {deleteTarget !== null && (
+        <DeleteDraftModal
+          job={deleteTarget}
+          busy={deleting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void confirmDelete()}
+        />
+      )}
     </main>
+  );
+}
+
+function DeleteDraftModal({
+  job,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  job: Job;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}): JSX.Element {
+  return (
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Delete draft role">
+      <div className="modal">
+        <h2>Delete draft role?</h2>
+        <p className="sub">
+          <strong>{job.title}</strong> and everything attached to it — the JD draft, blueprint,
+          sample previews and any sealed pool — will be removed, and any AI generation still
+          running for it is cancelled. This cannot be undone.
+        </p>
+        <div className="row" style={{ marginTop: 16, justifyContent: 'flex-end' }}>
+          <button type="button" className="secondary" onClick={onCancel}>Cancel</button>
+          <button type="button" className="danger" disabled={busy} onClick={onConfirm}>
+            {busy ? 'Deleting…' : 'Delete draft'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
