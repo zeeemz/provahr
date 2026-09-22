@@ -24,11 +24,11 @@
 >    `graphify-out/`, regen at every wave gate; (d) pre-dispatch graph ritual
 >    before delegating any task.
 > 6. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc
->    --noEmit && npx vitest run` (current state: **542 passed + 17
->    CI-gated = 559**, re-verified 2026-09-21 after seal cancellation).
+>    --noEmit && npx vitest run` (current state: **548 passed + 17
+>    CI-gated = 565**, re-verified 2026-09-21 after draft-role deletion).
 
 > **Living document — updated after every work session.**
-> Last updated: 2026-09-21 (seal cancellation + Docker DNS ops fixes; docs sweep, candidate profile, marking, walk-in earlier today; 542 passed + 17 CI-gated) · Maintained by: main harness agent
+> Last updated: 2026-09-21 (draft-role deletion; seal cancellation + Docker DNS ops fixes, docs sweep, candidate profile, marking, walk-in earlier today; 548 passed + 17 CI-gated) · Maintained by: main harness agent
 
 | | |
 |---|---|
@@ -350,6 +350,56 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-09-22 (security hardening at the commit gate — wildcard CORS gone,
+  help-text exec pattern gone)** — The Mimosa commit gate flagged 8 highs.
+  Two were real code-smell and are fixed: (1) CORS no longer has an
+  allow-any branch at all — `origin` is an explicit-membership callback over
+  the CORS_ORIGIN allow-list, and a `*` anywhere in that env now fails
+  **at boot** (`env.ts` refine) instead of silently flipping the app to
+  allow-all (previous behavior: `*,foo` in the list = wildcard wins).
+  No shipped config ever used `*` (compose/VM list explicit origins; the
+  web app proxies `/api` same-origin), so behavior is unchanged for every
+  real deployment. (2) env.ts's "generate a key" help text embedded a
+  `node -e "require('crypto')…"` literal that pattern-matched command
+  injection — replaced with `openssl rand -hex 32` (SELF_HOSTING.md
+  updated to match). The remaining 6 findings are false positives on
+  deliberate negative tests (RS256 signing with runtime-generated 2048-bit
+  keys; the HS256-rejection test must use HS256 by design) — reviewed and
+  accepted. Suite **548 passed + 17 CI-gated = 565**. *(main)*
+- **2026-09-21 (draft-role deletion — a draft JD is no longer permanent)** —
+  Founder request: a role created by intake mistake used to sit in the Roles
+  list forever (the DELETE route existed but deleted ANY status and nothing in
+  the UI called it). `deleteJob` is now **DRAFT-only** (`409 JOB_NOT_DRAFT`
+  otherwise — a published role carries applications + the append-only
+  stage-event audit trail, so it is closed, never deleted); before the
+  cascade it flips any in-flight queue rows for the draft (JD generation,
+  samples, a running seal) to terminal `CANCELLED`, crediting the deleter —
+  the same worker contract as seal cancellation, so deleting under a
+  running seal is safe (assertNotAborted bails between batches; the pool
+  only materializes in the final transaction, guarded). Job row delete
+  cascades blueprint/pools/samples. Web: Roles table gains an Actions column
+  with a danger Delete button on DRAFT rows (recruiter+) and a confirm modal
+  in the house style. Tests: new `tests/jobs-routes.test.ts` (6: auth, viewer
+  403, cross-tenant 404, JOB_NOT_DRAFT 409, cancel-before-delete ordering,
+  admin path). Suite **548 passed + 17 CI-gated = 565**; docs: API.md
+  DELETE entry, BIBLE.md D24. *(main)*
+- **2026-09-22 (VM deployment + CSP fix: wizard broken on plain-HTTP
+  non-localhost origins)** — Deployed the full stack to the founder's RHEL 8
+  VM (10.0.115.153): fixed the VM's empty resolv.conf (no DNS at all),
+  installed Docker 26 + compose 2.27 on an *unregistered* RHEL (docker-ce
+  repo + container-selinux/libcgroup RPMs pulled from the AlmaLinux mirror),
+  shipped the repo to /opt/provahr, `compose up -d --build`, web app as a
+  host-network node:20 container on :5173, firewalld opened 4000/5173/8081
+  (Postgres unexposed), all containers restart-unless-stopped. First live
+  finding on a LAN deployment: helmet's default CSP ships
+  `upgrade-insecure-requests` (+ HSTS) — browsers exempt localhost, but on
+  the VM's IP they obey it, rewriting every http request to https: the setup
+  wizard's native form submit then violates `form-action 'self'` and its
+  same-origin fetches die. Fix in `app.ts`: helmet configured with
+  `useDefaults: true` minus `upgrade-insecure-requests`, HSTS off (TLS
+  termination/HSTS is the fronting proxy's job). Verified live: headers
+  clean, wizard serving; suite still **542 passed + 17 CI-gated**; local
+  stack rebuilt for parity. *(main)*
 - **2026-09-21 (seal cancellation — HR can shut an in-flight seal)** — Founder
   request after a morning of slow seals on a degraded network: "no option on
   the UI to stop sealing." Shipped: **`POST /api/jobs/:jobId/pool/cancel`**

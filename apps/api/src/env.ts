@@ -12,7 +12,15 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_EXPIRES_IN: z.string().default('12h'),
-  CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  // Wildcard CORS is not supported: '*' anywhere in the list fails at boot
+  // (app.ts applies the explicit allow-list only — see the CORS middleware).
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:5173')
+    .refine(
+      (v) => !v.split(',').map((o) => o.trim()).includes('*'),
+      "CORS_ORIGIN may not contain '*' — list explicit origins instead",
+    ),
   OIDC_ENABLED: boolString.default('false'),
   // Trailing slashes are stripped at the door: Keycloak's `iss` claim never
   // has one, and jwt.verify compares raw strings — a slash would 401 forever
@@ -57,8 +65,7 @@ if (!parsed.success) {
 if (usesUnsafeProductionSecrets(parsed.data.NODE_ENV, parsed.data.SECRETS_KEY)) {
   console.error('Refusing to start: SECRETS_KEY is the public development default while NODE_ENV=production.');
   console.error('Provider API keys would be encrypted with a value printed in the repository.');
-  console.error('Generate a real one with:');
-  console.error('  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  console.error('Generate a real one with: openssl rand -hex 32');
   process.exit(1);
 }
 

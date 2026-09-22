@@ -53,12 +53,12 @@ item.
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | PostgreSQL connection string, e.g. `postgresql://postgres:postgres@localhost:5432/hiring_platform?schema=public` |
-| `JWT_SECRET` | yes | Signs local login tokens (super admin + local mode). Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `JWT_SECRET` | yes | Signs local login tokens (super admin + local mode). Generate: `openssl rand -hex 32` |
 | `SECRETS_KEY` | yes in production | Encrypts LLM provider API keys at rest (AES-256-GCM). Generate the same way as `JWT_SECRET` — **use the generator, not a human passphrase** (the key derivation has no stretching). Must be at least 16 characters. With `NODE_ENV=production` the API refuses to boot on the development default. |
 | `NODE_ENV` | no | `development` (default) / `test` / `production` |
 | `PORT` | no | API port (default `4000`) |
 | `JWT_EXPIRES_IN` | no | Local-mode login token lifetime (default `12h`) |
-| `CORS_ORIGIN` | no | Comma-separated frontend origins (default `http://localhost:5173`), or `*` |
+| `CORS_ORIGIN` | no | Comma-separated frontend origins (default `http://localhost:5173`). No wildcard: `*` fails at boot |
 | `WORKER_POLL_MS` | no | Worker idle poll interval (default `2000`) |
 | `LLM_TIMEOUT_MS` | no | Ceiling for a single LLM provider call, milliseconds (default `60000`, range 1s–10min). Raise it if you use a slower provider/model: question-pool generation asks for several rich items per call and can legitimately take minutes — at the default 60s those batches die as `LLM provider unreachable` while smaller calls (JD drafts, samples) still succeed. The compose stack ships `300000` (5 minutes). |
 | `OIDC_ENABLED` | no | **Fallback only** (D19): the auth mode when no `PlatformSettings` row exists. The live mode is the platform setting (`Platform → Settings`). |
@@ -71,7 +71,7 @@ managed in the portal by each tenant's admin — never env, never a restart.
 Generation commands:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+openssl rand -hex 32
 ```
 
 Run it twice — once for `JWT_SECRET`, once for `SECRETS_KEY`. Do not reuse one

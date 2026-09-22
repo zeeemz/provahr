@@ -21,12 +21,34 @@ export function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
-  app.use(helmet());
+  // Plain-HTTP deployments (the compose stack ships no TLS — LAN VMs, local
+  // dev): `upgrade-insecure-requests` makes browsers rewrite every http
+  // request to https on non-localhost origins, which then trips form-action
+  // 'self' and kills the setup wizard's same-origin fetches (live VM finding,
+  // 2026-09-22). HSTS equally belongs to the TLS-terminating proxy of a real
+  // deployment, not to the app over http.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: { 'upgrade-insecure-requests': null },
+      },
+      strictTransportSecurity: false,
+    }),
+  );
 
-  const origins = env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+  // CORS: explicit allow-list from CORS_ORIGIN env — nothing else is ever
+  // allowed. A configured '*' is rejected at boot (env.ts) rather than
+  // silently ignored, so a misconfigured origin list fails loudly.
+  const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
   app.use(cors({
-    // Explicit origin allow-list from CORS_ORIGIN env; '*' is opt-in only.
-    origin: origins[0] === '*' ? true : origins,
+    origin: (requestOrigin, callback) => {
+      if (requestOrigin !== undefined && allowedOrigins.includes(requestOrigin)) {
+        callback(null, true); // this ONE request origin is on the allow-list
+      } else {
+        callback(null, false); // everything else gets no CORS headers
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }));
