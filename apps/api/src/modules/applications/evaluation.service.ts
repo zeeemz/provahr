@@ -675,6 +675,61 @@ async function writeAssessment(
  * arrays are empty until the session is SUBMITTED — the HR audit view opens
  * exactly when the candidate's view closes to "submitted".
  */
+/**
+ * Per-item ground truth for the X-ray (founder request 2026-10-05): with a
+ * wrong/partial answer, HR sees the correct answer and why. The explanation
+ * is the item's OWN truth — correct option text, per-claim truth flags, the
+ * rubric's required points, the hidden cases' expected outputs — never
+ * invented prose. Same sanctioned decrypt as the evaluation pass; strictly
+ * session-scoped (only items THIS session drew; undrawn pool items never
+ * leave the pool).
+ */
+export type XrayTruth =
+  | { format: 'MCQ'; correctOptionId: string; correctOptionText: string }
+  | { format: 'SWIPE_MCQ'; options: Array<{ id: string; text: string; truth: boolean }> }
+  | { format: 'WRITTEN'; rubric: string }
+  | {
+      format: 'CODE';
+      hiddenCases: Array<{
+        name: string;
+        stdin: string | null;
+        args: string[];
+        expectedStdout: string | null;
+        expectedExit: number | null;
+      }>;
+    };
+
+function truthFor(item: AssessmentItem | undefined): XrayTruth | null {
+  if (item?.format === 'MCQ') {
+    const correct = item.options.find((o) => o.id === item.correctOptionId);
+    return correct
+      ? { format: 'MCQ', correctOptionId: item.correctOptionId, correctOptionText: correct.text }
+      : null;
+  }
+  if (item?.format === 'SWIPE_MCQ') {
+    return {
+      format: 'SWIPE_MCQ',
+      options: item.options.map((o) => ({ id: o.id, text: o.text, truth: o.truth })),
+    };
+  }
+  if (item?.format === 'WRITTEN') {
+    return { format: 'WRITTEN', rubric: item.rubric };
+  }
+  if (item?.format === 'CODE') {
+    return {
+      format: 'CODE',
+      hiddenCases: item.hiddenCases.map((c) => ({
+        name: c.name,
+        stdin: c.stdin ?? null,
+        args: c.args ?? [],
+        expectedStdout: c.expectedStdout ?? null,
+        expectedExit: c.expectedExit ?? null,
+      })),
+    };
+  }
+  return null; // pool drift (re-sealed since the session): truth unavailable
+}
+
 export async function getXray(user: AuthUser, applicationId: string) {
   const application = await prisma.application.findUnique({
     where: { id: applicationId },
@@ -684,7 +739,9 @@ export async function getXray(user: AuthUser, applicationId: string) {
       status: true,
       job: { select: { id: true, title: true, companyId: true } },
       candidate: { select: { id: true, name: true, email: true } },
-      testSession: { select: { id: true, status: true, startedAt: true, submittedAt: true, deadlineAt: true } },
+      testSession: {
+        select: { id: true, status: true, startedAt: true, submittedAt: true, deadlineAt: true, jobId: true },
+      },
     },
   });
   if (!application || application.job.companyId !== user.companyId) {
@@ -749,10 +806,20 @@ export async function getXray(user: AuthUser, applicationId: string) {
   const byType: Record<string, number> = {};
   for (const row of signalRows) byType[row.type] = (byType[row.type] ?? 0) + 1;
 
+  // Truth overlay — best-effort: mid-reseal/pool-drift degrades to null per
+  // item rather than taking the whole X-ray down.
+  let poolItems = new Map<string, AssessmentItem>();
+  try {
+    poolItems = await loadActivePoolItems(session.jobId);
+  } catch {
+    poolItems = new Map();
+  }
+  const questionsWithTruth = questions.map((q) => ({ ...q, truth: truthFor(poolItems.get(q.itemId)) }));
+
   return {
     ...empty,
     available: true,
-    questions,
+    questions: questionsWithTruth,
     signals: { total: signalRows.length, byType },
     assessment,
   };

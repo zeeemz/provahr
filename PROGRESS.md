@@ -25,10 +25,10 @@
 >    before delegating any task.
 > 6. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc
 >    --noEmit && npx vitest run` (current state: **548 passed + 17
->    CI-gated = 565**, re-verified 2026-09-21 after draft-role deletion).
+>    CI-gated = 572**, re-verified 2026-10-05 after the X-ray truth overlay).
 
 > **Living document — updated after every work session.**
-> Last updated: 2026-09-21 (draft-role deletion; seal cancellation + Docker DNS ops fixes, docs sweep, candidate profile, marking, walk-in earlier today; 548 passed + 17 CI-gated) · Maintained by: main harness agent
+> Last updated: 2026-10-05 (X-ray truth overlay — correct answers + why; 555 passed + 17 CI-gated) · Maintained by: main harness agent
 
 | | |
 |---|---|
@@ -350,6 +350,37 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-10-05 (X-ray truth overlay — wrong answers now explain themselves)** —
+  Founder request: "for incorrect answers i need to see correct answers too.
+  with explaination as why its wrong and right". `getXray` now attaches a
+  per-question `truth` block from the sealed pool via the same sanctioned
+  decrypt the evaluation pass uses (strictly session-scoped; drift degrades
+  to `null`, never an error): MCQ `correctOptionId`+`correctOptionText`,
+  SWIPE per-claim truth flags, WRITTEN `rubric`, CODE `hiddenCases` with
+  expected stdout/exit. Web X-ray renders it per format: the correct MCQ
+  option is badged ✔ with a why-line for wrong choices; SWIPE claims get
+  true/false badges + right-call/misjudged marks against the candidate's
+  likes; WRITTEN shows "a correct answer must cover" (rubric) on
+  non-CORRECT verdicts; CODE lists hidden-case expectations (inputs +
+  expected outputs) when any case failed. The explanation is the item's own
+  ground truth — no invented prose, no new LLM cost. Tests: +5 in
+  evaluation-routes.test.ts (per-format truth shape, null-normalized CODE
+  cases, re-seal drift degradation). Suite **555 passed + 17 CI-gated =
+  572**. *(main)*
+- **2026-09-22 (pipeline board shows test outcomes)** — Founder request:
+  "on pipeline page i need to see test scores too". `listForJob` now includes
+  each application's `testSession` (status + score once the evaluation pass
+  has written the assessment) — counts only, nothing per-item. Web Pipeline
+  table gains a Test column: green `Score 0.xx` (same 0–1 scale as the X-ray
+  and candidate profile), amber `Submitted · evaluation pending`,
+  outline `In progress` / `Link issued` / `Expired`, `—` when no session.
+  Tests: +2 in jobs-routes.test.ts (payload shape incl. score round-trip,
+  no-evaluations-leak assertion; cross-tenant 404). Also: app.test.ts
+  auth/mode gained an explicit 20s timeout — the only route in that file
+  that really touches prisma (fail-open against the nonexistent test DB);
+  Docker Desktop's port proxy stalled the refusal past the 5s default under
+  the full parallel suite (3 consecutive full-run failures, instant solo
+  pass, 2026-09-22). Suite **550 passed + 17 CI-gated = 567**. *(main)*
 - **2026-09-22 (security hardening at the commit gate — wildcard CORS gone,
   help-text exec pattern gone)** — The Mimosa commit gate flagged 8 highs.
   Two were real code-smell and are fixed: (1) CORS no longer has an

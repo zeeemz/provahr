@@ -80,6 +80,12 @@ describe('public endpoints', () => {
 });
 
 describe('GET /api/auth/mode', () => {
+  // The only app.test route that reaches prisma for real: DATABASE_URL points
+  // at the nonexistent `hiring_platform_test` database, so the read is EXPECTED
+  // to fail open. Under the full parallel suite on Docker Desktop (Windows),
+  // the port-proxy can stall that refusal roundtrip past the 5s default —
+  // seen 3× on 2026-09-22 while the same test passes instantly solo. Explicit
+  // 20s timeout keeps the fail-open path exercised without red-noise flakes.
   it('reports the install auth mode (boolean-only, public)', async () => {
     const res = await request(app).get('/api/auth/mode');
     expect(res.status).toBe(200);
@@ -89,5 +95,5 @@ describe('GET /api/auth/mode', () => {
     // to false; only the key set is asserted here.
     expect(Object.keys(res.body).sort()).toEqual(['mode', 'perCompany']);
     expect(typeof res.body.perCompany).toBe('boolean');
-  });
+  }, 20_000);
 });

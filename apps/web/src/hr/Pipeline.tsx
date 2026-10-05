@@ -87,6 +87,7 @@ export default function Pipeline(): JSX.Element {
                 <th>Candidate</th>
                 <th>Stage</th>
                 <th>Status</th>
+                <th>Test</th>
                 <th>Interviews</th>
                 <th>Applied</th>
               </tr>
@@ -94,7 +95,7 @@ export default function Pipeline(): JSX.Element {
             <tbody>
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="muted">
+                  <td colSpan={6} className="muted">
                     No applications{stageFilter ? ' at this stage' : ''} yet.
                   </td>
                 </tr>
@@ -118,6 +119,7 @@ export default function Pipeline(): JSX.Element {
                   </td>
                   <td><span className="badge blue">{humanize(app.stage)}</span></td>
                   <td><span className={statusBadgeClass(app.status)}>{humanize(app.status)}</span></td>
+                  <td><TestCell session={app.testSession ?? null} /></td>
                   <td className="muted">
                     {app.interviews.length === 0
                       ? '—'
@@ -132,6 +134,27 @@ export default function Pipeline(): JSX.Element {
       )}
     </main>
   );
+}
+
+// ─── Test outcome at a glance ─────────────────────────────────────────────────
+// Score (0–1, same scale as the detail X-ray / candidate profile) once the
+// evaluation pass has written the assessment; otherwise the session state.
+
+function TestCell({ session }: { session: NonNullable<ApplicationListItem['testSession']> | null }): JSX.Element {
+  if (session === null) return <span className="muted">—</span>;
+  if (session.assessment != null) {
+    return <span className="badge green">Score {session.assessment.totalScore.toFixed(2)}</span>;
+  }
+  switch (session.status) {
+    case 'SUBMITTED':
+      return <span className="badge amber">Submitted · evaluation pending</span>;
+    case 'STARTED':
+      return <span className="badge outline">In progress</span>;
+    case 'EXPIRED':
+      return <span className="badge outline">Expired</span>;
+    default:
+      return <span className="badge outline">Link issued</span>;
+  }
 }
 
 // ─── Walk-in: HR enters identity, then opens the test on the spot ─────────────

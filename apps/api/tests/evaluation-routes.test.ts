@@ -358,6 +358,85 @@ describe('GET /api/applications/:id/xray', () => {
     expect(res.body.xray.session).toBeNull();
     expect(res.body.xray.available).toBe(false);
   });
+
+  // ─── Truth overlay (founder request 2026-10-05): why-wrong/why-right ────────
+  // The explanation IS the item's ground truth: correct option text, per-claim
+  // truth flags, the rubric's required points, hidden-case expectations.
+
+  it('carries the SWIPE per-claim truth flags for the misjudged-claim explanation', async () => {
+    const res = await request(app).get('/api/applications/app-1/xray').set(auth);
+    expect(res.body.xray.questions[0].truth).toEqual({
+      format: 'SWIPE_MCQ',
+      options: [
+        { id: 'a', text: 'fork() returns twice', truth: true },
+        { id: 'b', text: 'kill -9 can be caught', truth: false },
+        { id: 'c', text: 'A zombie holds a PID', truth: true },
+      ],
+    });
+  });
+
+  it('carries the MCQ correct answer (id + text) for a wrong choice', async () => {
+    sessionQuestionFindMany.mockResolvedValue([
+      {
+        ...xrayQuestionRow(),
+        format: 'MCQ',
+        itemId: 'item-mcq',
+        answer: { content: { optionId: 'b' }, revisions: 1, firstAnsweredAt: now, lastAnsweredAt: now },
+      },
+    ]);
+    const res = await request(app).get('/api/applications/app-1/xray').set(auth);
+    expect(res.body.xray.questions[0].truth).toEqual({
+      format: 'MCQ',
+      correctOptionId: 'a',
+      correctOptionText: '200 with the original result body',
+    });
+  });
+
+  it('carries the WRITTEN rubric — the required points are the why-right', async () => {
+    sessionQuestionFindMany.mockResolvedValue([
+      { ...xrayQuestionRow(), format: 'WRITTEN', itemId: 'item-written' },
+    ]);
+    const res = await request(app).get('/api/applications/app-1/xray').set(auth);
+    expect(res.body.xray.questions[0].truth).toEqual({
+      format: 'WRITTEN',
+      rubric: 'Must name measurement first AND at least one isolation step.',
+    });
+  });
+
+  it('carries CODE hidden-case expectations with normalized nulls', async () => {
+    const codeItem: AssessmentItem = {
+      id: 'item-code',
+      format: 'CODE',
+      prompt: 'Print the sum of two numbers read from stdin.',
+      language: 'BASH',
+      hiddenCases: [
+        { name: 'two-numbers', stdin: '2 3', expectedStdout: '5', expectedExit: 0 },
+        { name: 'empty', expectedExit: 1 },
+      ],
+      difficulty: 'MEDIUM',
+      topics: ['bash'],
+    };
+    poolFindFirst.mockResolvedValue({ itemsEncrypted: encryptSecret(JSON.stringify([codeItem])) });
+    sessionQuestionFindMany.mockResolvedValue([
+      { ...xrayQuestionRow(), format: 'CODE', itemId: 'item-code' },
+    ]);
+    const res = await request(app).get('/api/applications/app-1/xray').set(auth);
+    expect(res.body.xray.questions[0].truth).toEqual({
+      format: 'CODE',
+      hiddenCases: [
+        { name: 'two-numbers', stdin: '2 3', args: [], expectedStdout: '5', expectedExit: 0 },
+        { name: 'empty', stdin: null, args: [], expectedStdout: null, expectedExit: 1 },
+      ],
+    });
+  });
+
+  it('degrades to truth:null (X-ray still available) when the pool was re-sealed', async () => {
+    poolFindFirst.mockResolvedValue(null); // loadActivePoolItems 503 — swallowed
+    const res = await request(app).get('/api/applications/app-1/xray').set(auth);
+    expect(res.status).toBe(200);
+    expect(res.body.xray.available).toBe(true);
+    expect(res.body.xray.questions[0].truth).toBeNull();
+  });
 });
 
 // ─── Void route: ADMIN-only + renormalization ─────────────────────────────────

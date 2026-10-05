@@ -9,11 +9,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { signToken } from '../src/lib/token';
 
-const { userFindUnique, jobFindFirst, jobQueueUpdateMany, jobDelete } = vi.hoisted(() => ({
+const { userFindUnique, jobFindFirst, jobQueueUpdateMany, jobDelete, applicationFindMany } = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   jobFindFirst: vi.fn(),
   jobQueueUpdateMany: vi.fn(),
   jobDelete: vi.fn(),
+  applicationFindMany: vi.fn(),
 }));
 
 vi.mock('../src/prisma', () => ({
@@ -21,6 +22,7 @@ vi.mock('../src/prisma', () => ({
     user: { findUnique: userFindUnique },
     job: { findFirst: jobFindFirst, delete: jobDelete },
     jobQueue: { updateMany: jobQueueUpdateMany },
+    application: { findMany: applicationFindMany },
   },
 }));
 
@@ -101,5 +103,39 @@ describe('DELETE /api/jobs/:jobId', () => {
     prime('ADMIN');
     const res = await request(app).delete('/api/jobs/job-1').set(auth);
     expect(res.status).toBe(204);
+  });
+});
+
+describe('GET /api/jobs/:jobId/applications — test outcome at a glance', () => {
+  it('includes each application\'s session state + score (and nothing per-item)', async () => {
+    prime();
+    const row = {
+      id: 'app-1',
+      candidate: { id: 'cand-1', name: 'C', email: 'c@x.test' },
+      interviews: [],
+      testSession: { status: 'SUBMITTED', submittedAt: new Date(0), assessment: { totalScore: 0.75 } },
+    };
+    applicationFindMany.mockResolvedValue([row]);
+    const res = await request(app).get('/api/jobs/job-1/applications').set(auth);
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications[0].testSession).toEqual({
+      status: 'SUBMITTED',
+      submittedAt: '1970-01-01T00:00:00.000Z',
+      assessment: { totalScore: 0.75 },
+    });
+    const include = applicationFindMany.mock.calls[0][0].include;
+    expect(include.testSession.select.assessment).toEqual({ select: { totalScore: true } });
+    // The score surface stays counts-only: no evaluation/selection leaks of
+    // per-question truth in the pipeline payload.
+    expect(JSON.stringify(include)).not.toContain('evaluations');
+  });
+
+  it('404s for another company job (uniform, no oracle)', async () => {
+    prime();
+    jobFindFirst.mockResolvedValue(null);
+    const res = await request(app).get('/api/jobs/job-x/applications').set(auth);
+    expect(res.status).toBe(404);
+    expect(applicationFindMany).not.toHaveBeenCalled();
   });
 });

@@ -357,6 +357,11 @@ function XrayQuestionCard({
   const evaln: XrayEvaluation | null = question.evaluation;
   const exec: XrayExecution | null = question.executionResult;
   const answer = question.answer;
+  const truth = question.truth ?? null;
+  const mcqTruth = truth?.format === 'MCQ' ? truth : null;
+  const swipeTruth = truth?.format === 'SWIPE_MCQ' ? truth : null;
+  const chosenOptionId = asMcqChoice(answer?.content);
+  const notCorrect = evaln === null || evaln.verdict !== 'CORRECT';
 
   return (
     <div className="xray-q">
@@ -389,6 +394,12 @@ function XrayQuestionCard({
           {presented.options.map((o) => {
             const valuation = asSwipeValuation(answer?.content, o.id);
             const selected = asMcqChoice(answer?.content) === o.id;
+            // Truth overlay (2026-10-05): the correct answer rides WITH the
+            // candidate's pick, so a wrong choice explains itself.
+            const claim = swipeTruth?.options.find((t) => t.id === o.id) ?? null;
+            const isCorrectOption = mcqTruth !== null && mcqTruth.correctOptionId === o.id;
+            const callWasRight = claim !== null && valuation !== null && (valuation === 'LIKE') === claim.truth;
+            const callWasWrong = claim !== null && valuation !== null && !callWasRight;
             return (
               <li key={o.id}>
                 {o.text}
@@ -398,13 +409,49 @@ function XrayQuestionCard({
                   </span>
                 )}
                 {selected && <span className="badge blue" style={{ marginLeft: 8 }}>selected</span>}
+                {isCorrectOption && <span className="badge green" style={{ marginLeft: 8 }}>✔ correct answer</span>}
+                {selected && isCorrectOption === false && mcqTruth !== null && notCorrect && (
+                  <span className="badge red" style={{ marginLeft: 8 }}>✘ wrong choice</span>
+                )}
+                {claim !== null && (
+                  <span className={`badge ${claim.truth ? 'green' : 'red'}`} style={{ marginLeft: 8 }}>
+                    {claim.truth ? 'true claim' : 'false claim'}
+                  </span>
+                )}
+                {callWasRight && <span className="badge green" style={{ marginLeft: 8 }}>right call</span>}
+                {callWasWrong && <span className="badge red" style={{ marginLeft: 8 }}>misjudged</span>}
               </li>
             );
           })}
         </ul>
       )}
 
+      {mcqTruth !== null && notCorrect && chosenOptionId !== mcqTruth.correctOptionId && (
+        <p className="hint" style={{ marginTop: 4 }}>
+          <strong>Why:</strong> the correct answer is <em>“{mcqTruth.correctOptionText}”</em> — every other
+          option is a self-contained statement that is definitively wrong for this material.
+        </p>
+      )}
+
+      {swipeTruth !== null && notCorrect && (
+        <p className="hint" style={{ marginTop: 4 }}>
+          <strong>Why:</strong> liking a <em>true</em> claim or disliking a <em>false</em> claim scores; each
+          misjudged statement above is marked. The claims are self-contained, so the truth flag is the
+          explanation.
+        </p>
+      )}
+
       {question.format === 'WRITTEN' && <AnswerText answer={answer?.content} />}
+      {truth?.format === 'WRITTEN' && notCorrect && (
+        <p className="hint" style={{ marginTop: 4 }}>
+          <strong>A correct answer must cover:</strong> {truth.rubric}
+        </p>
+      )}
+      {truth === null && (question.format === 'MCQ' || question.format === 'SWIPE_MCQ') && evaln !== null && (
+        <p className="hint" style={{ marginTop: 4 }}>
+          Pool re-sealed since this test — the correct answer is not recoverable for this item.
+        </p>
+      )}
       {question.format === 'CODE' && (
         <>
           {presented.language !== undefined && <p className="hint">Language: <code>{presented.language}</code></p>}
@@ -435,6 +482,27 @@ function XrayQuestionCard({
                   <pre>{exec.stderr}</pre>
                 </>
               )}
+              {truth?.format === 'CODE'
+                && truth.hiddenCases.some((hc) => exec.caseResults?.find((r) => r.name === hc.name)?.passed !== true)
+                && (
+                  <div style={{ marginTop: 8 }}>
+                    <div className="hint"><strong>What correct looks like</strong> (hidden-case expectations):</div>
+                    {truth.hiddenCases.map((hc) => {
+                      const ran = exec.caseResults?.find((r) => r.name === hc.name);
+                      const failed = ran != null && ran.passed !== true;
+                      return (
+                        <div key={hc.name} className="hint" style={{ marginTop: 4 }}>
+                          <strong>{hc.name}</strong>
+                          {ran == null ? ' (never ran)' : failed ? ' · FAILED' : ' · passed'}
+                          {hc.args.length > 0 && <> · args: <code>{hc.args.join(' ')}</code></>}
+                          {hc.stdin !== null && <> · stdin: <code>{hc.stdin}</code></>}
+                          {hc.expectedStdout !== null && <> · expected stdout: <code>{hc.expectedStdout}</code></>}
+                          {hc.expectedExit !== null && <> · expected exit: <code>{hc.expectedExit}</code></>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
             </div>
           )}
         </>

@@ -414,6 +414,13 @@ export interface ApplicationListItem {
   candidate: Candidate;
   job: { id: string; title: string };
   interviews: InterviewSummary[];
+  /** Test outcome at a glance (null = no session was ever issued). */
+  testSession?: {
+    status: string; // ISSUED | STARTED | SUBMITTED | EXPIRED
+    submittedAt?: string | null;
+    /** Present once the evaluation pass has written the assessment. */
+    assessment?: { totalScore: number } | null;
+  } | null;
 }
 
 export interface StageEventRow {
@@ -489,6 +496,22 @@ export interface XrayAnswer {
   lastAnsweredAt: string | null;
 }
 
+/** Per-item ground truth (HR X-ray): the correct answer + why, from the item itself. */
+export type XrayTruth =
+  | { format: 'MCQ'; correctOptionId: string; correctOptionText: string }
+  | { format: 'SWIPE_MCQ'; options: Array<{ id: string; text: string; truth: boolean }> }
+  | { format: 'WRITTEN'; rubric: string }
+  | {
+      format: 'CODE';
+      hiddenCases: Array<{
+        name: string;
+        stdin: string | null;
+        args: string[];
+        expectedStdout: string | null;
+        expectedExit: number | null;
+      }>;
+    };
+
 export interface XrayQuestion {
   order: number;
   format: string;
@@ -497,6 +520,8 @@ export interface XrayQuestion {
   answer: XrayAnswer | null;
   evaluation: XrayEvaluation | null;
   executionResult: XrayExecution | null;
+  /** Null = pool re-sealed since the session (truth unavailable) or voided item. */
+  truth?: XrayTruth | null;
 }
 
 export interface XrayFlagSummary {

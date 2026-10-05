@@ -233,8 +233,8 @@ link).
 | `hr/Dashboard.tsx` | Company dashboard (`GET /api/stats`) |
 | `hr/JobsPage.tsx` | Job list → open console |
 | `hr/JobConsole.tsx` | The PLAN §4 loop on one page: JD poll/edit/approve → blueprint → samples → seal (live progress + last-failure surfacing) → publish |
-| `hr/Pipeline.tsx` | Per-job pipeline board (`GET /api/jobs/:id/applications`) + "+ Walk-in candidate" (D22): HR enters identity → test link minted → open on the spot |
-| `hr/ApplicationDetail.tsx` | Application detail + evaluation X-ray + human stage/status moves + item void; links to the candidate profile |
+| `hr/Pipeline.tsx` | Per-job pipeline board (`GET /api/jobs/:id/applications`, rows carry the test outcome: score / evaluation-pending / in-progress / expired) + "+ Walk-in candidate" (D22): HR enters identity → test link minted → open on the spot |
+| `hr/ApplicationDetail.tsx` | Application detail + evaluation X-ray + human stage/status moves + item void; links to the candidate profile. X-ray carries the truth overlay (2026-10-05): wrong answers show the correct answer and why — MCQ correct option, SWIPE per-claim truth with misjudged marks, WRITTEN rubric, CODE hidden-case expectations |
 | `hr/CandidateProfile.tsx` | Candidate test profile (D23): aggregate tiles, per-format tallies, cross-role history |
 | `hr/Activity.tsx` | Live background-work feed (`GET /api/activity`, 3s auto-refresh): queue rows with status/retries/errors |
 | `components/ui.tsx`, `styles.css` | Shared UI atoms and styling |

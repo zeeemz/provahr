@@ -44,6 +44,16 @@ export async function listForJob(
       candidate: true,
       job: { select: { id: true, title: true } },
       interviews: { select: { id: true, type: true, scheduledAt: true, status: true } },
+      // Test outcome at a glance (pipeline board): session state + the score
+      // once the evaluation pass has written the assessment. Counts only —
+      // no items, no per-question truth ever leaves the sealed-pool domain.
+      testSession: {
+        select: {
+          status: true,
+          submittedAt: true,
+          assessment: { select: { totalScore: true } },
+        },
+      },
     },
   });
 }
