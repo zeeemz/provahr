@@ -122,6 +122,16 @@ describe('PUT /api/jobs/:id/blueprint — validation (invalid body → 400 VALID
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
+  it('rejects SWIPE_MCQ counts — swipe is paused for new tests (2026-10-05)', async () => {
+    const res = await request(app)
+      .put('/api/jobs/job-1/blueprint')
+      .set(auth)
+      .send({ ...validBlueprint, sections: [{ topics: ['sql'], formats: { SWIPE_MCQ: 3, MCQ: 2 } }] });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(JSON.stringify(res.body.error)).toContain('temporarily disabled');
+  });
+
   it('rejects a section with no topics', async () => {
     const res = await request(app)
       .put('/api/jobs/job-1/blueprint')

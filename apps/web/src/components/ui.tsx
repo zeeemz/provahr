@@ -112,6 +112,12 @@ export const ROLE_FAMILIES = [
 export const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP'] as const;
 export const DIFFICULTY_MIXES = ['EASY_HEAVY', 'BALANCED', 'HARD_HEAVY'] as const;
 export const QUESTION_FORMAT_LIST = ['SWIPE_MCQ', 'MCQ', 'WRITTEN', 'CODE'] as const;
+/**
+ * Formats offered when shaping a NEW blueprint. SWIPE is paused for new tests
+ * (2026-10-05) — existing tests that already contain swipe keep working; the
+ * blueprint editor only hides the control, never existing data.
+ */
+export const CREATABLE_FORMATS = ['MCQ', 'WRITTEN', 'CODE'] as const;
 
 export function statusBadgeClass(status: string | null | undefined): string {
   switch (status) {

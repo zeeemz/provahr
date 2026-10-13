@@ -25,10 +25,10 @@
 >    before delegating any task.
 > 6. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc
 >    --noEmit && npx vitest run` (current state: **548 passed + 17
->    CI-gated = 572**, re-verified 2026-10-05 after the X-ray truth overlay).
+>    CI-gated = 573**, re-verified 2026-10-05 after pausing SWIPE for new tests).
 
 > **Living document — updated after every work session.**
-> Last updated: 2026-10-05 (X-ray truth overlay — correct answers + why; 555 passed + 17 CI-gated) · Maintained by: main harness agent
+> Last updated: 2026-10-05 (SWIPE paused for new tests — D25; X-ray truth overlay earlier; 556 passed + 17 CI-gated) · Maintained by: main harness agent
 
 | | |
 |---|---|
@@ -350,6 +350,20 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-10-05 (SWIPE paused for new tests — D25)** — Founder request:
+  "remove Swipe option for now we will add it later; if some active tests
+  have swipe leave it as is, just disable swipe for new test creation".
+  `putBlueprintSchema` now rejects any section with a SWIPE_MCQ count
+  (`SWIPE_DISABLED_FOR_NEW_TESTS` flag — one flip to re-offer) while every
+  existing path stays untouched: sealed pools, drawn sessions, immediate
+  marking, evaluation and the X-ray truth overlay all keep handling swipe
+  items exactly as before. Web blueprint editor: new sections default to
+  MCQ and no longer show the swipe stepper; an older blueprint that already
+  carries a swipe count still shows it (amber "paused — set 0 to save") so
+  nothing is silently lost, with a matching client-side pre-check.
+  Tests: +1 (PUT with SWIPE count → 400 with the paused message);
+  integration tier verified MCQ-only (CI unaffected). Suite **556 passed +
+  17 CI-gated = 573**. *(main)*
 - **2026-10-05 (X-ray truth overlay — wrong answers now explain themselves)** —
   Founder request: "for incorrect answers i need to see correct answers too.
   with explaination as why its wrong and right". `getXray` now attaches a

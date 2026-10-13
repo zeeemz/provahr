@@ -436,7 +436,8 @@ interface SectionDraft {
 }
 
 function emptySection(): SectionDraft {
-  return { title: '', topics: '', counts: { SWIPE_MCQ: 1, MCQ: 0, WRITTEN: 0, CODE: 0 }, difficultyMix: 'BALANCED' };
+  // MCQ is the default draw format — SWIPE is paused for new tests (2026-10-05).
+  return { title: '', topics: '', counts: { SWIPE_MCQ: 0, MCQ: 1, WRITTEN: 0, CODE: 0 }, difficultyMix: 'BALANCED' };
 }
 
 function toDraft(sections: BlueprintSection[]): SectionDraft[] {
@@ -524,6 +525,11 @@ function BlueprintStep({ jobId, jdApproved }: { jobId: string; jdApproved: boole
       setBusy(false);
       return;
     }
+    if (parsed.some((s) => (s.formats.SWIPE_MCQ ?? 0) > 0)) {
+      setFormError('SWIPE (like/dislike) is paused for new tests — set its count to 0 before saving.');
+      setBusy(false);
+      return;
+    }
     if (timeLimitMin < 10 || timeLimitMin > 180) {
       setFormError('Time limit must be 10–180 minutes.');
       setBusy(false);
@@ -593,9 +599,15 @@ function BlueprintStep({ jobId, jdApproved }: { jobId: string; jdApproved: boole
             value={section.topics} onChange={(e) => updateSection(i, { topics: e.target.value })} />
           <label className="field">Questions per format (what a session draws)</label>
           <div className="fmt-row">
-            {QUESTION_FORMAT_LIST.map((f) => (
+            {/* SWIPE is paused for new tests (2026-10-05): only a section that
+                ALREADY carries a swipe count (an older blueprint) shows it, so
+                existing shapes stay visible and can be zeroed before a re-save. */}
+            {QUESTION_FORMAT_LIST.filter((f) => f !== 'SWIPE_MCQ' || section.counts.SWIPE_MCQ > 0).map((f) => (
               <label key={f} className="hint" style={{ marginTop: 0, fontWeight: 400 }}>
-                <span style={{ display: 'block', marginBottom: 2 }}>{humanize(f)}</span>
+                <span style={{ display: 'block', marginBottom: 2 }}>
+                  {humanize(f)}
+                  {f === 'SWIPE_MCQ' && <span className="badge amber" style={{ marginLeft: 6 }}>paused — set 0 to save</span>}
+                </span>
                 <input type="number" min={0} max={10} value={section.counts[f]}
                   onChange={(e) =>
                     updateSection(i, { counts: { ...section.counts, [f]: Math.max(0, Number(e.target.value) || 0) } })
