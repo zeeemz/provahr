@@ -591,6 +591,7 @@ model TestSession {
 
   sessionQuestions SessionQuestion[]
   signals          SessionSignal[]
+  codeRuns         CodeRun[]
   assessment       SessionAssessment?
 
   @@index([jobId])
@@ -616,6 +617,7 @@ model SessionQuestion {
   answer Answer?
   executionResult ExecutionResult?
   evaluation Evaluation?
+  codeRuns CodeRun[]
 
   @@unique([sessionId, order])
   @@index([itemId]) // Phase 8 void-by-item / re-normalization queries (QA wave-6 F9)
@@ -672,6 +674,38 @@ model ExecutionResult {
   createdAt         DateTime       @default(now())
 
   @@map("execution_results")
+}
+
+// ─── Candidate-triggered code runs (IDE "Run", 2026-10) ───────────────────────
+
+/// One candidate-triggered sandbox run of their OWN saved CODE answer
+/// (founder request: IDE-style interviews). Created QUEUED by the public run
+/// route (token-gated, rate-limited, capped per session), filled by the
+/// worker's CODE_RUN handler using the same hardened executor as evaluation.
+/// Holds ONLY the candidate's code output with THEIR OWN args — never
+/// hidden-case expectations (those stay sealed until evaluation), so there is
+/// no truth to leak. Runs also land as CODE_RUN signals (iteration evidence
+/// visible in the HR X-ray rollup).
+model CodeRun {
+  id                String          @id @default(cuid())
+  sessionId         String
+  session           TestSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionQuestionId String
+  sessionQuestion   SessionQuestion @relation(fields: [sessionQuestionId], references: [id], onDelete: Cascade)
+  status            String          @default("QUEUED") // QUEUED → DONE | FAILED
+  argsUsed          Json?           // string[] the candidate passed (their input, their output)
+  exitCode          Int?
+  durationMs        Int?
+  stdout            String          @default("") @db.Text // sandbox stream caps (64KB) already applied upstream
+  stderr            String          @default("") @db.Text
+  truncated         Boolean         @default(false)
+  error             String?         // FAILED reason (executor unavailable, bad payload…)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([sessionId, createdAt])
+  @@index([sessionQuestionId, createdAt])
+  @@map("code_runs")
 }
 
 // ─── Evaluation (PLAN.md Phase 8, §4 loop step 6, §8) ────────────────────────

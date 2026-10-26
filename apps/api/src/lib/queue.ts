@@ -11,7 +11,7 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 
-export type JobType = 'JD_GENERATION' | 'SAMPLES_GENERATION' | 'POOL_SEAL' | 'EVALUATION';
+export type JobType = 'JD_GENERATION' | 'SAMPLES_GENERATION' | 'POOL_SEAL' | 'EVALUATION' | 'CODE_RUN';
 
 /** A claimed job handed to a worker handler. */
 export interface QueueJob {

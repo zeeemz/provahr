@@ -395,6 +395,41 @@ describe('POST /test/:token/answers — upserts + validation', () => {
     expect(bad.body.error.code).toBe('INVALID_ANSWER');
   });
 
+  it('saves a multi-file CODE answer; rejects bad paths, dupes, and oversized files', async () => {
+    primeSession(startedRow());
+    primeQuestion('CODE', { prompt: 'Double it.', language: 'PYTHON' });
+
+    const ok = await request(app)
+      .post(`/api/public/test/${TOKEN}/answers`)
+      .send({
+        order: 1,
+        content: {
+          files: [
+            { path: 'util.py', content: 'def double(x):\n    return x * 2\n' },
+            { path: 'main.py', content: 'from util import double\nprint(double(4))\n' },
+          ],
+          entry: 'main.py',
+        },
+      });
+    expect(ok.status).toBe(200);
+    const arg = answerUpsert.mock.calls[0]![0] as { create: { content: { files: Array<{ path: string }>; entry: string } } };
+    expect(arg.create.content.entry).toBe('main.py');
+    expect(arg.create.content.files.map((f) => f.path)).toEqual(['util.py', 'main.py']);
+
+    for (const bad of [
+      { files: [{ path: '../escape.py', content: 'x' }], entry: '../escape.py' },
+      { files: [{ path: '/abs.py', content: 'x' }], entry: '/abs.py' },
+      { files: [{ path: 'a.py', content: 'x' }, { path: 'a.py', content: 'y' }], entry: 'a.py' },
+      { files: [{ path: 'a.py', content: 'x'.repeat(20_001) }], entry: 'a.py' },
+      { files: [{ path: 'a.py', content: 'x' }], entry: 'not-there.py' },
+      { files: [], entry: '' },
+    ]) {
+      const res = await request(app).post(`/api/public/test/${TOKEN}/answers`).send({ order: 1, content: bad });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('INVALID_ANSWER');
+    }
+  });
+
   it('rejects a SWIPE valuation that is not LIKE/DISLIKE', async () => {
     primeSession(startedRow());
     primeQuestion('SWIPE_MCQ', PRESENTED_MCQ);

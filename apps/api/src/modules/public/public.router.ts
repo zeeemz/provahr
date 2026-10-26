@@ -5,7 +5,7 @@ import { createRateLimiter } from '../../lib/rateLimit';
 import { listPublicJobs, getPublicJob, apply, getTestLinkInfo, saveWalkInDetails } from './public.service';
 import { publicJobsQuerySchema } from './public.schema';
 import { applySchema, walkInDetailsSchema } from '../applications/applications.schema';
-import { answerSchema, signalsSchema, startSchema } from './session.schema';
+import { answerSchema, signalsSchema, startSchema, runSchema, runsQuerySchema } from './session.schema';
 import {
   getSessionView,
   recordSignals,
@@ -14,6 +14,7 @@ import {
   upsertAnswer,
 } from './session.service';
 import { objectiveMarking } from './marking.service';
+import { requestRun, listRuns } from './code-run.service';
 
 const router = Router();
 
@@ -31,6 +32,11 @@ const router = Router();
 const applyLimiter = createRateLimiter({ windowMs: 60_000, max: 20 });
 const testTokenLimiter = createRateLimiter({ windowMs: 60_000, max: 20 });
 const sessionLimiter = createRateLimiter({ windowMs: 60_000, max: 60 });
+// IDE Run buckets (2026-10), TOKEN-keyed instead of IP-keyed: a walk-in office
+// shares one IP, but the single-use link is the real abuse unit. POSTing a run
+// spawns a container (strict); polling the result list is cheap (roomier).
+const codeRunLimiter = createRateLimiter({ windowMs: 60_000, max: 6 });
+const codeRunListLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
 
 /** Wraps a limiter as Express middleware keyed by client IP. */
 function ipRateLimit(allow: (key: string) => boolean): RequestHandler {
@@ -38,6 +44,18 @@ function ipRateLimit(allow: (key: string) => boolean): RequestHandler {
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
     if (!allow(ip)) {
       next(new AppError(429, 'Too many requests — try again later', 'RATE_LIMITED'));
+      return;
+    }
+    next();
+  };
+}
+
+/** Same, keyed by the test token in the path (see codeRunLimiter above). */
+function tokenRateLimit(allow: (key: string) => boolean): RequestHandler {
+  return (req, _res, next) => {
+    const key = req.params.token ?? 'unknown';
+    if (!allow(key)) {
+      next(new AppError(429, 'Too many runs — give it a moment', 'RATE_LIMITED'));
       return;
     }
     next();
@@ -164,6 +182,36 @@ router.post(
   ipRateLimit(sessionLimiter),
   asyncHandler(async (req, res) => {
     const result = await submitSession(req.params.token!);
+    res.json(result);
+  }),
+);
+
+// ── IDE code runs (founder request 2026-10) ───────────────────────────────────
+// The Run button on CODE questions. Executes the candidate's OWN SAVED code
+// (body carries only order + args — never code) via the worker's hardened
+// sandbox; the response NEVER contains hidden-case expectations (runs judge
+// nothing — output only). Gated like answers: STARTED + clock, hash-only
+// token, uniform 404.
+
+/** Enqueue one run → 202 { run: { id, status } }; poll the list below. */
+router.post(
+  '/test/:token/run',
+  tokenRateLimit(codeRunLimiter),
+  asyncHandler(async (req, res) => {
+    const input = runSchema.parse(req.body);
+    const result = await requestRun(req.params.token!, input);
+    res.status(202).json(result);
+  }),
+);
+
+/** The candidate's own recent runs (newest first; ?order= scopes to one
+ *  question). Poll target until a run reaches DONE/FAILED. */
+router.get(
+  '/test/:token/runs',
+  tokenRateLimit(codeRunListLimiter),
+  asyncHandler(async (req, res) => {
+    const { order } = runsQuerySchema.parse(req.query);
+    const result = await listRuns(req.params.token!, order);
     res.json(result);
   }),
 );

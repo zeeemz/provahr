@@ -11,11 +11,15 @@ import { AppError } from '../src/lib/http';
 import {
   IMAGE_ALLOW_LIST,
   assertHardenedArgs,
+  BOOTSTRAP_MARKER,
+  buildBootstrap,
   buildRunArgs,
+  programFor,
   stdinPayload,
   stopTimeoutSeconds,
 } from '../src/lib/sandbox/builder';
 import { PER_CASE_TIMEOUT_MS, type SandboxRequest } from '../src/lib/sandbox/types';
+import { Buffer } from 'node:buffer';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -456,5 +460,89 @@ describe('assertHardenedArgs — parameterized over the resolved image (V2-4)', 
 
   it('an unsafe opts.image never validates the very image it would pin (empty argv edge)', () => {
     expectAppError(() => assertHardenedArgs([], { image: 'a b' }), 'SANDBOX_ARGS_UNHARDENED');
+  });
+});
+
+// ─── Multi-file bootstrap (IDE wave 2, 2026-10) ──────────────────────────────
+
+describe('buildBootstrap — the multi-file program carrier', () => {
+  const files = [
+    { path: 'util.py', content: 'def double(x):\n    return x * 2\n' },
+    { path: 'main.py', content: 'from util import double\nimport sys\nprint(double(int(sys.argv[1])))\n' },
+  ];
+
+  it('emits the marker, materializes every file from base64, execs the entry', () => {
+    const script = buildBootstrap('PYTHON', files, 'main.py');
+    const lines = script.split('\n');
+    expect(lines[0]).toBe(BOOTSTRAP_MARKER);
+    expect(lines[1]).toBe('set -eu');
+    expect(lines).toContain('cd /tmp/w');
+    const b64util = Buffer.from(files[0]!.content, 'utf8').toString('base64');
+    expect(script).toContain(`printf '%s' '${b64util}' | base64 -d > 'util.py'`);
+    expect(script).toContain(`exec python 'main.py' "$@"`);
+    expect(buildBootstrap('NODE', [{ path: 'main.js', content: 'console.log(1)' }], 'main.js')).toContain(
+      `exec node 'main.js' "$@"`,
+    );
+    expect(buildBootstrap('BASH', [{ path: 'main.sh', content: 'echo hi' }], 'main.sh')).toContain(
+      `exec bash 'main.sh' "$@"`,
+    );
+  });
+
+  it('is byte-decodable back to the exact workspace (round-trip proof)', () => {
+    const script = buildBootstrap('PYTHON', files, 'main.py');
+    const decoded = [...script.matchAll(/base64 -d > '([^']+)'/g)].map((m) => m[1]!);
+    expect(decoded).toEqual(['util.py', 'main.py']);
+    const utilB64 = script.match(/printf '%s' '([A-Za-z0-9+/=]+)' \| base64 -d > 'util\.py'/)![1]!;
+    expect(Buffer.from(utilB64, 'base64').toString('utf8')).toBe(files[0]!.content);
+  });
+
+  it('rejects traversal, absolute, duplicate, and metacharacter paths (fail-closed)', () => {
+    const bad = (f: Array<{ path: string; content: string }>) =>
+      expectAppError(() => buildBootstrap('PYTHON', f, f[0]!.path), 'SANDBOX_BAD_FILE');
+    bad([{ path: '../escape.py', content: 'x' }]);
+    bad([{ path: '/abs.py', content: 'x' }]);
+    bad([{ path: "o'brien.py", content: 'x' }]);
+    bad([{ path: 'a.py;rm -rf', content: 'x' }]);
+    bad([{ path: 'a.py', content: 'x' }, { path: 'a.py', content: 'y' }]);
+    expectAppError(() => buildBootstrap('PYTHON', files, 'not-there.py'), 'SANDBOX_BAD_FILE');
+    expectAppError(
+      () => buildBootstrap('PYTHON', [{ path: 'a.py', content: 'x'.repeat(20_001) }], 'a.py'),
+      'SANDBOX_BAD_FILE',
+    );
+    expectAppError(
+      () =>
+        buildBootstrap(
+          'PYTHON',
+          Array.from({ length: 9 }, (_, i) => ({ path: `f${i}.py`, content: 'x' })),
+          'f0.py',
+        ),
+      'SANDBOX_BAD_FILE',
+    );
+  });
+
+  it('programFor maps either answer arm: raw source vs bootstrap string', () => {
+    expect(programFor({ kind: 'text', text: 'print(1)' }, 'PYTHON')).toEqual({ code: 'print(1)', bootstrap: false });
+    const multi = programFor({ kind: 'files', files, entry: 'main.py' }, 'PYTHON');
+    expect(multi.bootstrap).toBe(true);
+    expect(multi.code.startsWith(BOOTSTRAP_MARKER)).toBe(true);
+  });
+
+  it('stdinPayload builds from structured files and passes pre-built bootstraps through', () => {
+    const req: SandboxRequest = { language: 'PYTHON', code: 'unused', cases: [], files, entry: 'main.py' };
+    expect(stdinPayload(req, { name: 'c' }).startsWith(BOOTSTRAP_MARKER)).toBe(true);
+    const pre = programFor({ kind: 'files', files, entry: 'main.py' }, 'PYTHON').code;
+    expect(stdinPayload({ language: 'PYTHON', code: pre, cases: [] }, { name: 'c' })).toBe(pre);
+  });
+
+  it('multiFile argv switches the interpreter prefix to sh -s -- (flag region untouched)', () => {
+    for (const language of CODE_LANGUAGES as readonly CodeLanguage[]) {
+      const single = buildRunArgs({ language });
+      const multi = buildRunArgs({ language, multiFile: true });
+      // the image is the token right after the '-i' flag
+      const imageIdx = single.findIndex((t) => t === '-i') + 1;
+      expect(multi.slice(0, imageIdx)).toEqual(single.slice(0, imageIdx));
+      expect(multi.slice(imageIdx + 1, imageIdx + 4)).toEqual(['sh', '-s', '--']);
+      expect(() => assertHardenedArgs(multi)).not.toThrow();
+    }
   });
 });

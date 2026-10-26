@@ -73,15 +73,24 @@ export interface PresentedOption {
 
 /**
  * What a candidate may see for one question. Deliberately narrow: prompt plus
- * (format-dependent) options / language / starterCode. Truth flags,
- * correctOptionId, rubrics and hidden cases are UNREPRESENTABLE here — see
- * the compile-time guards below.
+ * (format-dependent) options / language / starterCode / starterFiles. Truth
+ * flags, correctOptionId, rubrics and hidden cases are UNREPRESENTABLE here —
+ * see the compile-time guards below.
  */
+export interface PresentedFile {
+  path: string;
+  content: string;
+}
+
 export interface PresentedQuestion {
   prompt: string;
   options?: PresentedOption[];
   language?: string;
   starterCode?: string;
+  /** IDE wave 2: the multi-file workspace (supersedes starterCode when set). */
+  starterFiles?: PresentedFile[];
+  /** Which starterFile the sandbox executes. */
+  entryPath?: string;
 }
 
 // Compile-time leak guards: realizeVariant's output type cannot grow a truth
@@ -121,11 +130,18 @@ export function realizeVariant(item: AssessmentItem, rng: () => number): Present
         options: shuffled(item.options, rng).map(({ id, text }) => ({ id, text })), // correctOptionId lives on the item, never copied
       };
     case 'CODE':
-      // No structural variation in v1 — language + starter code pass through;
-      // hiddenCases stay sealed in the pool.
+      // No structural variation in v1 — language + starter workspace pass
+      // through; hiddenCases stay sealed in the pool. Wave 2: a multi-file
+      // item carries its file set + entry instead of a single starterCode.
       return {
         prompt: item.prompt,
         language: item.language,
+        ...(item.starterFiles !== undefined
+          ? {
+              starterFiles: item.starterFiles.map(({ path, content }) => ({ path, content })),
+              entryPath: item.entry ?? item.starterFiles[0]?.path ?? '',
+            }
+          : {}),
         ...(item.starterCode !== undefined ? { starterCode: item.starterCode } : {}),
       };
     case 'WRITTEN':

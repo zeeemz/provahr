@@ -97,6 +97,10 @@ No secrets required for green CI. Real-provider smoke tests run only when
    be deleted (`409 JOB_NOT_DRAFT`, `jobs.service.deleteJob`); DRAFT deletion
    flips the draft's in-flight queue rows to terminal CANCELLED before the
    cascade (T3 `jobs-routes.test.ts`).
+9. **IDE runs leak no truth** — candidate code runs (`code-run.service`, 2026-10)
+   read only the SAVED answer and the `presented` language (never the pool),
+   and return only the candidate's own output; hidden-case expectations never
+   appear pre-submit (T3 `code-run.test.ts`).
 
 ## 7. Review rules
 

@@ -31,7 +31,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { CODE_LANGUAGES, type CodeLanguage } from '../assessment/item';
 import { AppError } from '../http';
-import { assertHardenedArgs, buildRunArgs, stdinPayload } from './builder';
+import { assertHardenedArgs, BOOTSTRAP_MARKER, buildRunArgs, stdinPayload } from './builder';
 import { compareCase, stdinUnsupportedOutcome, summarize } from './judge';
 import {
   OUTPUT_CAP_BYTES,
@@ -121,7 +121,18 @@ export class DockerExecutor implements SandboxExecutor {
     for (const testCase of req.cases) {
       let args: string[];
       try {
-        args = buildRunArgs({ language: req.language, case: testCase }, opts);
+        args = buildRunArgs(
+          {
+            language: req.language,
+            case: testCase,
+            // Multi-file mode: structured files (evaluation path) OR a
+            // pre-built bootstrap script in `code` (IDE-run path, marker line).
+            multiFile:
+              (req.files !== undefined && req.files.length > 0) ||
+              req.code.startsWith(BOOTSTRAP_MARKER),
+          },
+          opts,
+        );
       } catch (err) {
         if (err instanceof AppError && err.code === 'SANDBOX_V1_NO_STDIN') {
           // v1 limitation: fail the case with an explanatory note, keep running

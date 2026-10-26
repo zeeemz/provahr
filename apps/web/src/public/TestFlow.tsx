@@ -16,13 +16,16 @@
 // - The submitted screen shows nothing but the confirmation (asymmetry is the
 //   product). Scores/verdicts exist only in the HR X-ray.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, api, errMessage, isNotFound } from '../api/client';
 import {
   asPresented,
   type AnswerContent,
+  type CodeFileView,
+  type CodeRunView,
   type MarkingView,
+  type PresentedQuestion,
   type SessionView,
   type SignalType,
   type SwipeValuation,
@@ -34,6 +37,8 @@ const PASTE_SIGNAL_THRESHOLD = 500; // chars — matches the product definition 
 const SIGNAL_FLUSH_MS = 10_000; // batch flush cadence
 const SIGNAL_BATCH_CAP = 100; // API schema max per batch
 const TEXT_SAVE_DEBOUNCE_MS = 900;
+const RUN_POLL_MS = 1_500; // IDE run polling cadence
+const RUN_POLL_TIMEOUT_MS = 30_000; // give the queue + container ample time
 
 type Phase =
   | { kind: 'loading' }
@@ -515,10 +520,22 @@ function SessionRunner({ token }: { token: string }): JSX.Element {
 
   const submittedRef = useRef(false); // guards the one-shot auto-submit at zero
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastTextRef = useRef<{ order: number; text: string } | null>(null);
+  // The pending debounced save (WRITTEN {text} or CODE {files, entry}).
+  const lastPendingRef = useRef<{ order: number; content: AnswerContent } | null>(null);
+
+  // IDE runs (CODE questions): the run being awaited, its output, and a
+  // transient note (rate limit / cap / expired) keyed by question order.
+  const [runsByOrder, setRunsByOrder] = useState<Record<number, CodeRunView[]>>({});
+  const [runningOrder, setRunningOrder] = useState<number | null>(null);
+  const [runNoteByOrder, setRunNoteByOrder] = useState<Record<number, string>>({});
 
   const signals = useSignals(token, ended === null);
   const sessionActive = ended === null;
+  // Mirror for async loops (run polling) that must stop when the session ends.
+  const sessionActiveRef = useRef(true);
+  useEffect(() => {
+    sessionActiveRef.current = sessionActive;
+  }, [sessionActive]);
 
   // Load / re-enter the session view (start already happened; this also heals
   // a page refresh because GET .../session is refresh-safe).
@@ -584,17 +601,28 @@ function SessionRunner({ token }: { token: string }): JSX.Element {
     [token, sessionActive], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // Debounced save for text formats (WRITTEN / CODE).
-  const queueTextSave = useCallback(
-    (order: number, text: string): void => {
-      lastTextRef.current = { order, text };
+  // Debounced save for text-bearing formats (WRITTEN {text}, CODE {files}).
+  const queueAnswerSave = useCallback(
+    (order: number, content: AnswerContent): void => {
+      lastPendingRef.current = { order, content };
       if (debounceRef.current !== null) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        const last = lastTextRef.current;
-        if (last !== null) void postAnswer(last.order, { text: last.text });
+        const last = lastPendingRef.current;
+        if (last !== null) void postAnswer(last.order, last.content);
       }, TEXT_SAVE_DEBOUNCE_MS);
     },
     [postAnswer],
+  );
+
+  const queueTextSave = useCallback(
+    (order: number, text: string): void => queueAnswerSave(order, { text }),
+    [queueAnswerSave],
+  );
+
+  const queueCodeSave = useCallback(
+    (order: number, files: CodeFileView[], entry: string): void =>
+      queueAnswerSave(order, { files, entry }),
+    [queueAnswerSave],
   );
 
   useEffect(
@@ -604,17 +632,77 @@ function SessionRunner({ token }: { token: string }): JSX.Element {
     [],
   );
 
-  /** Submit (manual or clock-driven); flushes signals first. */
-  async function finalize(auto: boolean): Promise<void> {
-    // Flush the pending debounced text so the final keystrokes are included.
+  /** Flush any pending debounced save NOW (used before a Run and before
+   *  submit — the server executes the SAVED answer, so the latest keystrokes
+   *  must land first). */
+  async function flushPendingAnswer(): Promise<void> {
     if (debounceRef.current !== null) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    const last = lastTextRef.current;
+    const last = lastPendingRef.current;
     if (last !== null && sessionActive) {
-      await api.post(`/public/test/${token}/answers`, { order: last.order, content: { text: last.text } }).catch(() => undefined);
+      lastPendingRef.current = null;
+      await api
+        .post(`/public/test/${token}/answers`, { order: last.order, content: last.content })
+        .then(() => {
+          setView((v) =>
+            v === null ? v : { ...v, answers: { ...v.answers, [String(last.order)]: last.content } },
+          );
+        })
+        .catch(() => undefined); // the run/submit surfaces real errors; this is best-effort
     }
+  }
+
+  /** IDE Run: flush the save, enqueue the run, poll until it settles. The
+   *  output panel reads the run row — never hidden-case truth (runs carry
+   *  only the candidate's own output). */
+  async function runCode(order: number, args: string[]): Promise<void> {
+    if (runningOrder !== null || !sessionActive) return;
+    setRunNoteByOrder((n) => ({ ...n, [order]: '' }));
+    setRunningOrder(order);
+    try {
+      await flushPendingAnswer();
+      const res = await api.post<{ run: { id: string } }>(`/public/test/${token}/run`, { order, args });
+      signals.push('CODE_RUN', { order }); // evidence of live iteration
+      const runId = res.run.id;
+      const startedAt = Date.now();
+      // Poll until terminal, timeout, or session end.
+      for (;;) {
+        if (!sessionActiveRef.current) return;
+        await new Promise((r) => setTimeout(r, RUN_POLL_MS));
+        let list: CodeRunView[];
+        try {
+          list = (await api.get<{ runs: CodeRunView[] }>(`/public/test/${token}/runs?order=${order}`)).runs;
+        } catch {
+          continue; // transient poll failure — keep trying until timeout
+        }
+        setRunsByOrder((m) => ({ ...m, [order]: list }));
+        const mine = list.find((r) => r.id === runId);
+        if (mine !== undefined && mine.status !== 'QUEUED') return;
+        if (Date.now() - startedAt > RUN_POLL_TIMEOUT_MS) {
+          setRunNoteByOrder((n) => ({ ...n, [order]: 'Run is taking unusually long — try again shortly.' }));
+          return;
+        }
+      }
+    } catch (err) {
+      if (err instanceof ApiError && (err.code === 'SESSION_EXPIRED' || err.code === 'SESSION_SUBMITTED')) {
+        if (!submittedRef.current) {
+          submittedRef.current = true;
+          void finalize(true);
+        }
+        return;
+      }
+      setRunNoteByOrder((n) => ({ ...n, [order]: errMessage(err) }));
+    } finally {
+      setRunningOrder(null);
+    }
+  }
+
+  /** Submit (manual or clock-driven); flushes signals first. */
+  async function finalize(auto: boolean): Promise<void> {
+    // Flush the pending debounced text so the final keystrokes are included.
+    await flushPendingAnswer();
     await signals.flush();
     setSubmitting(true);
     try {
@@ -666,6 +754,78 @@ function SessionRunner({ token }: { token: string }): JSX.Element {
   }
 
   const danger = remainingMs !== null && remainingMs < 60_000;
+  // CODE questions take over the viewport entirely: a full-bleed IDE shell
+  // (dark chrome edge-to-edge, editor fills the height) instead of the exam
+  // card layout. Every other format keeps the narrow exam shell.
+  const isCodeQuestion = current?.format === 'CODE';
+
+  const questionCard = current !== undefined ? (
+    <QuestionCard
+      key={current.order}
+      order={current.order}
+      format={current.format}
+      presented={asPresented(current.presented)}
+      saved={answers[String(current.order)]}
+      postAnswer={(content) => void postAnswer(current.order, content)}
+      queueTextSave={(text) => queueTextSave(current.order, text)}
+      queueCodeSave={(files, entry) => queueCodeSave(current.order, files, entry)}
+      pushSignal={signals.push}
+      runs={runsByOrder[current.order] ?? []}
+      running={runningOrder === current.order}
+      runNote={runNoteByOrder[current.order] ?? ''}
+      onRun={(args) => void runCode(current.order, args)}
+      saveState={saveState}
+    />
+  ) : null;
+
+  if (isCodeQuestion) {
+    return (
+      <main className="ide-page">
+        <header className="ide-topbar">
+          <div className="ide-topbar-side">
+            <strong className="ide-brand">⬢ ProvaHR</strong>
+            <span className="ide-topbar-sep" aria-hidden="true" />
+            <span>
+              Question {index + 1} of {questions.length}
+            </span>
+            <span className="badge blue" style={{ marginLeft: 10 }}>Coding task</span>
+          </div>
+          <div className="ide-topbar-side">
+            {saveState === 'error' && <span className="ide-save-error">save failed — retry an edit</span>}
+            <span className={`ide-timer${danger ? ' danger' : ''}`} aria-live="off">
+              ⏱ {remainingMs !== null ? mmss(remainingMs) : '--:--'}
+            </span>
+            <button
+              type="button"
+              className="ide-nav"
+              onClick={() => setIndex((i) => Math.max(0, i - 1))}
+              disabled={index === 0}
+            >
+              ← Prev
+            </button>
+            {index < questions.length - 1 ? (
+              <button type="button" className="ide-nav" onClick={() => setIndex((i) => i + 1)}>
+                Next →
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="ide-nav ide-nav-primary"
+                onClick={() => void finalize(false)}
+                disabled={submitting}
+              >
+                {submitting ? 'Submitting…' : 'Submit test'}
+              </button>
+            )}
+          </div>
+        </header>
+        <div className="ide-progress" aria-hidden="true">
+          <div style={{ width: `${((index + 1) / Math.max(1, questions.length)) * 100}%` }} />
+        </div>
+        <div className="ide-fill">{questionCard}</div>
+      </main>
+    );
+  }
 
   return (
     <main className="page narrow test-shell">
@@ -688,18 +848,7 @@ function SessionRunner({ token }: { token: string }): JSX.Element {
         )}
       </p>
 
-      {current !== undefined && (
-        <QuestionCard
-          key={current.order}
-          order={current.order}
-          format={current.format}
-          presented={asPresented(current.presented)}
-          saved={answers[String(current.order)]}
-          postAnswer={(content) => void postAnswer(current.order, content)}
-          queueTextSave={(text) => queueTextSave(current.order, text)}
-          pushSignal={signals.push}
-        />
-      )}
+      {questionCard}
 
       <div className="row" style={{ justifyContent: 'space-between', marginTop: 18 }}>
         <button
@@ -742,22 +891,57 @@ function QuestionCard({
   saved,
   postAnswer,
   queueTextSave,
+  queueCodeSave,
   pushSignal,
+  runs,
+  running,
+  runNote,
+  onRun,
+  saveState,
 }: {
   order: number;
   format: string;
-  presented: { prompt: string; options?: Array<{ id: string; text: string }>; language?: string; starterCode?: string };
+  presented: PresentedQuestion;
   saved: unknown;
   postAnswer: (content: AnswerContent) => void;
   queueTextSave: (text: string) => void;
+  queueCodeSave: (files: CodeFileView[], entry: string) => void;
   pushSignal: (type: SignalType, detail?: Record<string, unknown>) => void;
+  runs: CodeRunView[];
+  running: boolean;
+  runNote: string;
+  onRun: (args: string[]) => void;
+  saveState: SaveState;
 }): JSX.Element {
-  // LARGE_PASTE detection shared by every text-bearing format.
-  function onPaste(e: React.ClipboardEvent): void {
-    const text = e.clipboardData.getData('text');
-    if (text.length > PASTE_SIGNAL_THRESHOLD) {
-      pushSignal('LARGE_PASTE', { chars: text.length, order });
+  // LARGE_PASTE detection shared by every text-bearing format (chars-based:
+  // the textarea reports its paste event, Monaco its pasted range).
+  function reportLargePaste(chars: number): void {
+    if (chars > PASTE_SIGNAL_THRESHOLD) {
+      pushSignal('LARGE_PASTE', { chars, order });
     }
+  }
+
+  // CODE renders as its own IDE workspace — the prompt lives in the left
+  // task panel, not above the editor. Every other format keeps the exam card.
+  if (format === 'CODE') {
+    return (
+      <CodeBody
+        order={order}
+        prompt={presented.prompt}
+        language={presented.language}
+        starterCode={presented.starterCode}
+        starterFiles={presented.starterFiles}
+        entryPath={presented.entryPath}
+        saved={saved}
+        onFilesChange={queueCodeSave}
+        onLargePaste={reportLargePaste}
+        runs={runs}
+        running={running}
+        runNote={runNote}
+        onRun={onRun}
+        saveState={saveState}
+      />
+    );
   }
 
   return (
@@ -786,17 +970,7 @@ function QuestionCard({
         <WrittenBody
           saved={asTextSaved(saved)}
           onTextChange={queueTextSave}
-          onPaste={onPaste}
-        />
-      )}
-
-      {format === 'CODE' && (
-        <CodeBody
-          language={presented.language}
-          starterCode={presented.starterCode}
-          saved={asTextSaved(saved)}
-          onTextChange={queueTextSave}
-          onPaste={onPaste}
+          onLargePaste={reportLargePaste}
         />
       )}
     </div>
@@ -916,11 +1090,11 @@ function McqBody({
 function WrittenBody({
   saved,
   onTextChange,
-  onPaste,
+  onLargePaste,
 }: {
   saved: string | null;
   onTextChange: (text: string) => void;
-  onPaste: (e: React.ClipboardEvent) => void;
+  onLargePaste: (chars: number) => void;
 }): JSX.Element {
   const [text, setText] = useState(saved ?? '');
   return (
@@ -929,7 +1103,7 @@ function WrittenBody({
       <textarea
         value={text}
         maxLength={10_000}
-        onPaste={onPaste}
+        onPaste={(e) => onLargePaste(e.clipboardData.getData('text').length)}
         onChange={(e) => {
           setText(e.target.value);
           onTextChange(e.target.value);
@@ -939,37 +1113,305 @@ function WrittenBody({
   );
 }
 
+// Monaco is a ~MB-scale dependency: import lazily so only CODE questions pay.
+const CodeEditor = lazy(async () => import('./CodeEditor'));
+
+/** Path grammar mirrored from the API's codeAnswer.ts (same on both sides). */
+const FILE_PATH_REGEX = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/;
+const MAX_CODE_FILES = 8;
+const MAX_FILE_CHARS = 20_000;
+
+function defaultEntryName(language: string | undefined): string {
+  if (language === 'NODE') return 'main.js';
+  if (language === 'BASH') return 'main.sh';
+  return 'main.py';
+}
+
+/** The saved answer, either arm, as the initial workspace. */
+function initialWorkspace(
+  saved: unknown,
+  starterFiles: CodeFileView[] | undefined,
+  entryPath: string | undefined,
+  starterCode: string | undefined,
+  language: string | undefined,
+): { files: CodeFileView[]; entry: string } {
+  if (typeof saved === 'object' && saved !== null && Array.isArray((saved as { files?: unknown }).files)) {
+    const raw = (saved as { files: unknown[]; entry?: unknown }).files.filter(
+      (f): f is { path: string; content: string } =>
+        typeof f === 'object' && f !== null &&
+        typeof (f as { path?: unknown }).path === 'string' && typeof (f as { content?: unknown }).content === 'string',
+    );
+    if (raw.length > 0) {
+      const entry =
+        typeof (saved as { entry?: unknown }).entry === 'string' &&
+        raw.some((f) => f.path === (saved as { entry: string }).entry)
+          ? (saved as { entry: string }).entry
+          : raw[0]!.path;
+      return { files: raw.map((f) => ({ path: f.path, content: f.content })), entry };
+    }
+  }
+  if (starterFiles !== undefined && starterFiles.length > 0) {
+    const entry = entryPath !== undefined && starterFiles.some((f) => f.path === entryPath)
+      ? entryPath
+      : starterFiles[0]!.path;
+    return { files: starterFiles.map((f) => ({ ...f })), entry };
+  }
+  // Legacy single-file: saved {text} (or starterCode) becomes the entry file.
+  let text = '';
+  if (typeof saved === 'object' && saved !== null && typeof (saved as { text?: unknown }).text === 'string') {
+    text = (saved as { text: string }).text;
+  } else if (typeof starterCode === 'string') {
+    text = starterCode;
+  }
+  return { files: [{ path: defaultEntryName(language), content: text }], entry: defaultEntryName(language) };
+}
+
 function CodeBody({
+  order,
+  prompt,
   language,
   starterCode,
+  starterFiles,
+  entryPath,
   saved,
-  onTextChange,
-  onPaste,
+  onFilesChange,
+  onLargePaste,
+  runs,
+  running,
+  runNote,
+  onRun,
+  saveState,
 }: {
+  order: number;
+  prompt: string;
   language?: string;
   starterCode?: string;
-  saved: string | null;
-  onTextChange: (text: string) => void;
-  onPaste: (e: React.ClipboardEvent) => void;
+  starterFiles?: CodeFileView[];
+  entryPath?: string;
+  saved: unknown;
+  onFilesChange: (files: CodeFileView[], entry: string) => void;
+  onLargePaste: (chars: number) => void;
+  runs: CodeRunView[];
+  running: boolean;
+  runNote: string;
+  onRun: (args: string[]) => void;
+  saveState: SaveState;
 }): JSX.Element {
-  const [text, setText] = useState(saved ?? starterCode ?? '');
+  const initial = initialWorkspace(saved, starterFiles, entryPath, starterCode, language);
+  const [files, setFiles] = useState<CodeFileView[]>(initial.files);
+  const [entry, setEntry] = useState(initial.entry);
+  const [active, setActive] = useState(initial.entry);
+  const [argsText, setArgsText] = useState('');
+  const [cursor, setCursor] = useState({ ln: 1, col: 1 });
+  const [newPath, setNewPath] = useState('');
+  const [fileNote, setFileNote] = useState('');
+
+  const langLabel = language === 'PYTHON' ? 'Python' : language === 'NODE' ? 'JavaScript' : language === 'BASH' ? 'Bash' : 'Plain';
+  const activeFile = files.find((f) => f.path === active) ?? files[0]!;
+
+  function commit(nextFiles: CodeFileView[], nextEntry: string): void {
+    setFiles(nextFiles);
+    setEntry(nextEntry);
+    onFilesChange(nextFiles, nextEntry);
+  }
+
+  function editActive(content: string): void {
+    // Same per-file cap the API enforces — longer saves are rejected.
+    const capped = content.length > MAX_FILE_CHARS ? content.slice(0, MAX_FILE_CHARS) : content;
+    commit(files.map((f) => (f.path === activeFile.path ? { ...f, content: capped } : f)), entry);
+  }
+
+  function addFile(): void {
+    const path = newPath.trim();
+    setFileNote('');
+    if (!FILE_PATH_REGEX.test(path) || path.includes('..')) {
+      setFileNote('Paths: letters, digits, dot, underscore, dash, slash — relative, no "..".');
+      return;
+    }
+    if (files.some((f) => f.path === path)) {
+      setFileNote('A file with that path already exists.');
+      return;
+    }
+    if (files.length >= MAX_CODE_FILES) {
+      setFileNote(`At most ${MAX_CODE_FILES} files.`);
+      return;
+    }
+    commit([...files, { path, content: '' }], entry);
+    setActive(path);
+    setNewPath('');
+  }
+
+  function removeFile(path: string): void {
+    if (path === entry) return; // the entry file cannot be removed
+    const next = files.filter((f) => f.path !== path);
+    if (next.length === 0) return;
+    commit(next, entry);
+    if (active === path) setActive(entry);
+  }
+
+  function run(): void {
+    // Space-separated args → argv tokens (mirrors the hidden-case arg shape).
+    const args = argsText.split(/\s+/).map((a) => a.trim()).filter((a) => a !== '').slice(0, 10);
+    onRun(args);
+  }
+
+  const latest = runs.length > 0 ? runs[0] : null;
+
   return (
-    <div>
-      <p className="hint">
-        Language: <code>{language ?? 'unspecified'}</code>. Your code saves automatically; it will
-        be executed against hidden test cases after submission.
-      </p>
-      <textarea
-        className="code"
-        spellCheck={false}
-        value={text}
-        maxLength={10_000}
-        onPaste={onPaste}
-        onChange={(e) => {
-          setText(e.target.value);
-          onTextChange(e.target.value);
-        }}
-      />
+    <div className="ide">
+      {/* Left: the task + file explorer sidebar */}
+      <aside className="ide-side">
+        <div className="ide-side-head">TASK · Q{order}</div>
+        <div className="ide-task">
+          <span className="badge blue">Coding task</span>
+          <div style={{ marginTop: 8 }}>{prompt}</div>
+          <p className="hint" style={{ marginTop: 12 }}>
+            Your code saves automatically. Hidden test cases run only after you submit.
+          </p>
+        </div>
+        <div className="ide-files">
+          <div className="ide-side-head">FILES</div>
+          <ul>
+            {files.map((f) => (
+              <li key={f.path} className={f.path === active ? 'active' : undefined}>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  onClick={() => setActive(f.path)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setActive(f.path);
+                  }}
+                >
+                  {f.path}
+                </span>
+                {f.path === entry ? (
+                  <span className="ide-entry-tag">entry</span>
+                ) : (
+                  <span className="ide-file-actions">
+                    <button type="button" className="ide-mini" title="Make this the entry file" onClick={() => commit(files, f.path)}>
+                      ⤴ entry
+                    </button>
+                    <button type="button" className="ide-mini" title="Remove file" onClick={() => removeFile(f.path)}>
+                      ×
+                    </button>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="ide-newfile">
+            <input
+              aria-label="New file path"
+              placeholder="new file e.g. helpers.py"
+              value={newPath}
+              onChange={(e) => setNewPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addFile();
+              }}
+            />
+            <button type="button" className="ide-mini" onClick={addFile} disabled={newPath.trim() === ''}>
+              + add
+            </button>
+          </div>
+          {fileNote !== '' && <p className="ide-file-note">{fileNote}</p>}
+        </div>
+      </aside>
+
+      {/* Right: editor column with tab strip + status bar + terminal */}
+      <div className="ide-main">
+        <div className="ide-tabs">
+          {files.map((f) => (
+            <div
+              key={f.path}
+              className={`ide-tab${f.path === active ? ' active' : ''}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => setActive(f.path)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setActive(f.path);
+              }}
+            >
+              {f.path}
+              {f.path === entry ? <span className="ide-entry-tag" style={{ marginLeft: 8 }}>entry</span> : null}
+            </div>
+          ))}
+          <div className="ide-actions">
+            <span className="ide-run-hint">⌘/Ctrl+↵</span>
+            <button type="button" className="ide-run" onClick={run} disabled={running}>
+              {running ? 'Running…' : '▶ Run'}
+            </button>
+          </div>
+        </div>
+
+        <div className="ide-editor">
+          <Suspense fallback={<div className="ide-loading">Loading editor…</div>}>
+            <CodeEditor
+              key={activeFile.path}
+              language={language}
+              value={activeFile.content}
+              onChange={editActive}
+              onRun={run}
+              onLargePaste={onLargePaste}
+              onCursor={(ln, col) => setCursor({ ln, col })}
+            />
+          </Suspense>
+        </div>
+
+        <div className="ide-status">
+          <span>{langLabel}</span>
+          <span>{activeFile.path}</span>
+          <span>Ln {cursor.ln}, Col {cursor.col}</span>
+          <span>Spaces: 4</span>
+          <span style={{ marginLeft: 'auto' }}>
+            {saveState === 'saving' && 'Saving…'}
+            {saveState === 'saved' && <span className="ok">✓ Saved</span>}
+            {saveState === 'error' && <span className="fail">Save failed — retry an edit</span>}
+            {saveState === 'idle' && 'Autosave on'}
+          </span>
+        </div>
+
+        <div className="ide-console">
+          <div className="ide-console-head">
+            <span className="label">CONSOLE</span>
+            {latest !== null && latest.status === 'DONE' && (
+              <span className={latest.exitCode === 0 ? 'pass' : 'fail'}>
+                exit {latest.exitCode ?? '?'}{latest.durationMs !== null ? ` · ${latest.durationMs} ms` : ''}
+              </span>
+            )}
+            {latest !== null && latest.status === 'FAILED' && <span className="fail">run failed</span>}
+            {latest !== null && latest.argsUsed !== null && latest.argsUsed.length > 0 && (
+              <span>$ {latest.argsUsed.join(' ')}</span>
+            )}
+            <span style={{ marginLeft: 'auto' }}>args</span>
+            <input
+              className="ide-args"
+              aria-label="Program arguments"
+              placeholder="e.g. 3 5 --flag"
+              value={argsText}
+              onChange={(e) => setArgsText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') run();
+              }}
+            />
+          </div>
+          <div className="ide-output">
+            {runNote !== '' && <div className="meta fail">{runNote}</div>}
+            {latest === null && running === false && (
+              <pre className="meta" style={{ color: '#7d8590' }}>
+                {'// press Run (or ⌘/Ctrl+Enter) to execute your code here'}
+              </pre>
+            )}
+            {running && <pre style={{ color: '#7d8590' }}>{'▌ running…'}</pre>}
+            {latest !== null && latest.stdout !== '' && <pre>{latest.stdout}</pre>}
+            {latest !== null && latest.stderr !== '' && <pre className="err">{latest.stderr}</pre>}
+            {latest !== null && latest.truncated && (
+              <div className="meta">output truncated — 64 KB cap per stream</div>
+            )}
+            {latest !== null && latest.error !== null && <div className="meta fail">{latest.error}</div>}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

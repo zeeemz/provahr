@@ -49,11 +49,25 @@ export interface CaseOutcome {
   note?: string;
 }
 
+/** One file of a multi-file CODE answer (IDE wave 2). Paths are validated by
+ *  the answer normalizer AND again by the bootstrap generator — both use the
+ *  same traversal-free grammar (lib/assessment/codeAnswer.ts). */
+export interface SandboxFile {
+  path: string;
+  content: string;
+}
+
 /** What the evaluation worker (Phase 8) asks the sandbox to run. */
 export interface SandboxRequest {
   language: CodeLanguage;
+  /** The program: raw single-file source, or a pre-built bootstrap script
+   *  (multi-file) recognizable by builder.ts's BOOTSTRAP_MARKER first line. */
   code: string;
   cases: SandboxCase[];
+  /** Multi-file arm (IDE wave 2): materialized in-container by a bootstrap. */
+  files?: SandboxFile[];
+  /** Entry path within `files` that the interpreter executes. */
+  entry?: string;
 }
 
 /** Aggregate over all cases — feeds the ExecutionResult row verbatim. */

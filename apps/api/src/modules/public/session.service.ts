@@ -42,6 +42,7 @@ import {
 } from '../../lib/assessment/item';
 import { drawSession, realizeVariant, seededRng, type PresentedQuestion } from '../../lib/session/draw';
 import { deadlineFor, isExpired, withinSubmitGrace } from '../../lib/session/clock';
+import { normalizeCodeAnswer } from '../../lib/assessment/codeAnswer';
 import { objectiveMarking, type MarkingView } from './marking.service';
 import type { SignalsInput } from './session.schema';
 
@@ -108,8 +109,11 @@ function assertClockRunning(deadlineAt: Date): void {
   }
 }
 
-/** Shared gate for view/answers/signals/submit: live link + STARTED + clock. */
-async function findLiveStartedSession(token: string): Promise<{ session: SessionRow; deadlineAt: Date }> {
+export { assertClockRunning };
+
+/** Shared gate for view/answers/signals/submit: live link + STARTED + clock.
+ *  (Also the gate for the IDE code-run routes — modules/public/code-run.service.) */
+export async function findLiveStartedSession(token: string): Promise<{ session: SessionRow; deadlineAt: Date }> {
   const session = await findSession(token);
   if (linkExpired(session)) throw new AppError(410, 'Test link expired', 'TEST_LINK_EXPIRED');
   const deadlineAt = requireStarted(session);
@@ -372,9 +376,26 @@ function validateAnswerContent(format: string, presented: Prisma.JsonValue, cont
     return { optionId: content.optionId };
   }
 
-  if (format === 'WRITTEN' || format === 'CODE') {
+  if (format === 'CODE') {
+    // IDE wave 2: multi-file arm { files, entry } — validated by the shared
+    // normalizer (paths, caps, entry) — plus the legacy single-file { text }.
+    const language = isPlainObject(presented) && typeof presented.language === 'string'
+      ? presented.language
+      : '';
+    const normalized = normalizeCodeAnswer(content, language);
+    if (normalized === null) {
+      throw invalid(
+        'Code answers must be { files: [{path, content}], entry } (paths relative and traversal-free, ≤8 files, ≤20k chars each, ≤64k total) or legacy { text ≤10k }',
+      );
+    }
+    return normalized.kind === 'files'
+      ? ({ files: normalized.files, entry: normalized.entry } as unknown as Prisma.InputJsonValue)
+      : { text: normalized.text };
+  }
+
+  if (format === 'WRITTEN') {
     if (!isPlainObject(content) || typeof content.text !== 'string') {
-      throw invalid(`${format} answers must be { text }`);
+      throw invalid('WRITTEN answers must be { text }');
     }
     if (content.text.length > MAX_TEXT_LENGTH) {
       throw invalid(`Text answers are capped at ${MAX_TEXT_LENGTH} characters`);

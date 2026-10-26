@@ -44,6 +44,7 @@ import type { ImageOverrides, SandboxExecutor } from '../../lib/sandbox';
 import { createExecutor } from '../../lib/sandbox';
 import { IMAGE_ALLOW_LIST, resolveImage } from '../../lib/sandbox/templates';
 import { assessmentItemSchema, type AssessmentItem } from '../../lib/assessment/item';
+import { normalizeCodeAnswer } from '../../lib/assessment/codeAnswer';
 import {
   buildWrittenPrompt,
   buildCodeReviewPrompt,
@@ -138,7 +139,7 @@ export async function enqueueEvaluation(sessionId: string): Promise<{ id: string
  * the safe direction — while buildRunArgs re-validates every override at
  * build time (SANDBOX_TEMPLATE_UNSAFE) as the fail-closed backstop.
  */
-async function loadTemplateImages(companyId: string): Promise<ImageOverrides | undefined> {
+export async function loadTemplateImages(companyId: string): Promise<ImageOverrides | undefined> {
   try {
     const templates = await prisma.sandboxTemplate.findMany({
       where: { companyId, enabled: true },
@@ -389,8 +390,10 @@ async function evaluateQuestion(
 
   // ── CODE: sandbox hidden cases (+ optional LLM quality review) ─────────────
   if (item.format === 'CODE') {
-    const code = asTextAnswer(answer?.content ?? null);
-    if (code === null) {
+    // Wave 2: the answer may be a multi-file workspace ({files, entry}) or
+    // the legacy single blob ({text}); the normalizer decides the payload.
+    const normalized = normalizeCodeAnswer(answer?.content ?? null, item.language);
+    if (normalized === null || (normalized.kind === 'text' && normalized.text.trim() === '')) {
       return {
         ...base,
         verdict: 'INCORRECT',
@@ -403,7 +406,12 @@ async function evaluateQuestion(
 
     // Production seam: docker here; the AppError 503 SANDBOX_UNAVAILABLE
     // propagates so the queue retries (FakeExecutor covers tests).
-    const response = await getExecutor().execute({ language: item.language, code, cases: item.hiddenCases });
+    const response = await getExecutor().execute({
+      language: item.language,
+      code: normalized.kind === 'text' ? normalized.text : '',
+      ...(normalized.kind === 'files' ? { files: normalized.files, entry: normalized.entry } : {}),
+      cases: item.hiddenCases,
+    });
     await prisma.executionResult.upsert({
       where: { sessionQuestionId: question.id },
       create: {
@@ -441,6 +449,18 @@ async function evaluateQuestion(
       };
     }
 
+    // The LLM quality review reads the code as text: single blob as-is, or
+    // the file set joined with path headers (entry first for reviewer focus).
+    const reviewCode =
+      normalized.kind === 'text'
+        ? normalized.text
+        : [
+            ...normalized.files.filter((f) => f.path === normalized.entry),
+            ...normalized.files.filter((f) => f.path !== normalized.entry),
+          ]
+            .map((f) => `/* ${f.path}${f.path === normalized.entry ? ' (entry)' : ''} */\n${f.content}`)
+            .join('\n\n');
+
     const review = codeReviewSchema.parse(
       await chatJson(
         adapter,
@@ -448,7 +468,7 @@ async function evaluateQuestion(
         buildCodeReviewPrompt({
           prompt: item.prompt,
           language: item.language,
-          code,
+          code: reviewCode,
           caseOutcomes: response.outcomes,
           secondsSpent: secondsSpentOn(answer),
           revisions: answer?.revisions ?? 0,

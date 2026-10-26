@@ -25,10 +25,10 @@
 >    before delegating any task.
 > 6. Gates for any wave: `cd apps/api && npx prisma generate && npx tsc
 >    --noEmit && npx vitest run` (current state: **548 passed + 17
->    CI-gated = 573**, re-verified 2026-10-05 after pausing SWIPE for new tests).
+>    CI-gated = 595**, re-verified 2026-10-26 after IDE wave 2 (multi-file).
 
 > **Living document — updated after every work session.**
-> Last updated: 2026-10-05 (SWIPE paused for new tests — D25; X-ray truth overlay earlier; 556 passed + 17 CI-gated) · Maintained by: main harness agent
+> Last updated: 2026-10-26 (IDE wave 2 — multi-file explorer + bootstrap execution; 578 passed + 17 CI-gated) · Maintained by: main harness agent
 
 | | |
 |---|---|
@@ -350,6 +350,64 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-10-26 (IDE wave 2 — file explorer + multi-file execution)** — The
+  IDE is now a real workspace: CODE items may carry `starterFiles` (≤8,
+  traversal-free paths) + `entry` (additive-optional — existing pools parse
+  unchanged); `presented` exposes them; candidates get a FILES explorer
+  (add/remove/⤴-set-entry), per-file tabs, and the whole set autosaves as
+  `{ files, entry }` (legacy `{text}` accepted and normalized). Execution:
+  multi-file programs travel as a server-built POSIX-sh bootstrap
+  (builder.buildBootstrap — contents base64, paths re-whitelisted, entry
+  exec'd per language; `sh -s --` prefix, flag region byte-identical so the
+  exact-prefix hardening law holds). Evaluation + IDE runs both execute the
+  bootstrap; hidden cases judge the entry file with args. The X-ray renders
+  file blocks (entry first). Pool prompt teaches the generator
+  starterFiles/entry. Tests: +8 (bootstrap battery incl. round-trip + fail
+  closed paths, argv prefix law, session files-arm validation, worker
+  bootstrap threading). Suite **578 passed + 17 CI-gated = 595**. LIVE E2E
+  on the VM: two-file BASH answer (helper sourced by the entry) → Run with
+  args → HELLO/WORLD, exit 0 → submit → hidden cases judged the ENTRY file's
+  behavior (uppercase helper broke lowercase expectations → PARTIAL 0.33,
+  SANDBOX_LLM) — multi-file grading proven end to end. Also fixed en route:
+  the POST /run gate only accepted legacy {text} answers — now either arm.
+  *(main)*
+- **2026-10-26 (IDE code interviews, Wave 1 — Monaco + Run, D26)** — Founder
+  request: "Monaco editor for code questions… once they hit run / submit the
+  code goes in containers". CODE questions now render in a locally-bundled
+  Monaco (lazy chunk; no CDN — candidates need no internet), with a Run
+  button + Ctrl/Cmd+Enter and an output console with per-line argv args.
+  `POST /test/:token/run` executes the candidate's SAVED answer (body carries
+  only order+args — never code) via a new CODE_RUN queue job in the worker's
+  hardened sandbox (same executor + per-company templates as evaluation; the
+  API container still holds no Docker socket). Output-only, no judging, no
+  hidden-case truth pre-submit; every run is CODE_RUN signal evidence in the
+  X-ray. Token-keyed 6/min + 30/session caps; GET /test/:token/runs polls
+  (30/min). New CodeRun model + migration 0008. Also fixed en route:
+  findLiveStartedSession did not check the clock itself — runs now call
+  assertClockRunning explicitly (tests caught it). Web: LARGE_PASTE signal
+  parity for Monaco (onDidPaste), 10k cap preserved. Tests: code-run.test.ts
+  (14: route gates, sanitizer, worker contract incl. template threading and
+  SANDBOX_UNAVAILABLE retry). Suite **570 passed + 17 CI-gated = 587**.
+  LIVE E2E on the VM (real provider, real containers): sealed a CODE-only
+  role → walk-in → saved BASH code → Run with args → DONE in 6.6s with
+  correct stdout/exit → submit → hidden cases graded. Finding fixed en route:
+  the item generator produced stdin-fed CODE tasks whose hidden cases can
+  never execute in sandbox v1 (program itself arrives via stdin) — pool prompt
+  now mandates args-only cases; re-sealed role verified all-args cases
+  passing (CORRECT 1.0, SANDBOX_LLM). Wave 2 (file explorer + multi-file
+  execution) next; stdin-case execution rides Wave 2's bootstrap executor.
+  UI pass (same day, founder feedback "doesn't feel like an IDE"): CODE
+  questions now break out of the 760px exam shell into a wide two-pane
+  workspace — TASK/FILES sidebar (prompt + entry file; the FILES panel is
+  Wave 2's explorer home), editor column with tab strip + accent Run action
+  + status bar (language · Ln/Col · spaces · live save state), and a
+  terminal-styled console (exit/duration chip, `$ args` echo,
+  space-separated args input, Enter to run). MCQ/SWIPE/WRITTEN keep the
+  exam card. Founder follow-up ("looks like a small box"): v2 went
+  FULL-BLEED — `.ide-page` fixed overlay, dark chrome edge-to-edge, top
+  bar (brand · question · timer · Prev/Next/Submit), thin progress line,
+  editor flexes to viewport height, sidebar task scrolls internally.
+  *(main)*
 - **2026-10-05 (SWIPE paused for new tests — D25)** — Founder request:
   "remove Swipe option for now we will add it later; if some active tests
   have swipe leave it as is, just disable swipe for new test creation".

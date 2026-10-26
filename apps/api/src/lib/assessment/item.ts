@@ -69,6 +69,24 @@ export const hiddenCaseSchema = z
     path: [],
   });
 
+/**
+ * A starter file for multi-file CODE items (IDE wave 2, 2026-10): the
+ * workspace the candidate opens. Paths are relative, traversal-free, and
+ * shell-inert by construction (this exact character class is what the sandbox
+ * bootstrap relies on when quoting).
+ */
+export const filePathSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/, 'File paths must be relative, traversal-free, and use only letters, digits, . _ / -')
+  .refine((p) => !p.includes('..') && !p.startsWith('/'), {
+    message: 'File paths must be relative and traversal-free',
+  });
+
+export const starterFileSchema = z.object({
+  path: filePathSchema,
+  content: z.string().max(20_000),
+});
+
 const promptText = z.string().trim().min(10).max(2_000);
 const topicsSchema = z.array(z.string().trim().min(2).max(60)).min(1).max(3);
 const difficultySchema = z.enum(QUESTION_DIFFICULTIES);
@@ -111,6 +129,9 @@ const codeItem = z.object({
   prompt: promptText,
   language: z.enum(CODE_LANGUAGES),
   starterCode: z.string().max(5_000).optional(),
+  // IDE wave 2: a multi-file workspace instead of one starterCode blob.
+  starterFiles: z.array(starterFileSchema).max(8).optional(),
+  entry: filePathSchema.optional(),
   hiddenCases: z.array(hiddenCaseSchema).min(2).max(5),
   difficulty: difficultySchema,
   topics: topicsSchema,
@@ -159,6 +180,29 @@ export const assessmentItemSchema = z
           code: z.ZodIssueCode.custom,
           path: ['options'],
           message: 'MCQ option ids must be unique',
+        });
+      }
+    }
+    if (item.format === 'CODE' && item.starterFiles !== undefined) {
+      if (item.starterFiles.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['starterFiles'],
+          message: 'starterFiles, when present, must have at least one file',
+        });
+      }
+      if (new Set(item.starterFiles.map((f) => f.path)).size !== item.starterFiles.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['starterFiles'],
+          message: 'starterFiles paths must be unique',
+        });
+      }
+      if (item.entry === undefined || !item.starterFiles.some((f) => f.path === item.entry)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['entry'],
+          message: 'entry must name one of the starterFiles paths',
         });
       }
     }

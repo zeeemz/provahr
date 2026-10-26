@@ -11,6 +11,7 @@ import type { JobType, QueueJob } from './lib/queue';
 import { runJdGeneration } from './modules/jobs/jd.service';
 import { runSamplesGeneration, runPoolSeal } from './modules/jobs/blueprint.service';
 import { runEvaluation } from './modules/applications/evaluation.service';
+import { runCodeRun } from './modules/public/code-run.service';
 
 type JobHandler = (payload: Record<string, unknown>) => Promise<void>;
 
@@ -42,6 +43,12 @@ const handlers: Record<JobType, JobHandler> = {
       throw new Error(`EVALUATION payload has no sessionId string: ${JSON.stringify(payload).slice(0, 200)}`);
     }
     await runEvaluation(payload.sessionId);
+  },
+  CODE_RUN: async (payload) => {
+    if (typeof payload.codeRunId !== 'string' || payload.codeRunId === '') {
+      throw new Error(`CODE_RUN payload has no codeRunId string: ${JSON.stringify(payload).slice(0, 200)}`);
+    }
+    await runCodeRun(payload.codeRunId);
   },
 };
 

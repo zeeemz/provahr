@@ -19,7 +19,22 @@ export type EmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHI
 export type JdStatus = 'JD_DRAFTING' | 'JD_REVIEW' | 'JD_APPROVED';
 
 export type QuestionFormat = 'SWIPE_MCQ' | 'MCQ' | 'WRITTEN' | 'CODE';
-export type SignalType = 'TAB_SWITCH' | 'APP_BACKGROUND' | 'BLUR' | 'LARGE_PASTE' | 'COPY' | 'TIMING_ANOMALY';
+export type SignalType = 'TAB_SWITCH' | 'APP_BACKGROUND' | 'BLUR' | 'LARGE_PASTE' | 'COPY' | 'TIMING_ANOMALY' | 'CODE_RUN';
+
+/** Row of GET /api/public/test/:token/runs — the candidate's own run output. */
+export interface CodeRunView {
+  id: string;
+  order: number;
+  status: string; // QUEUED → DONE | FAILED
+  argsUsed: string[] | null;
+  exitCode: number | null;
+  durationMs: number | null;
+  stdout: string;
+  stderr: string;
+  truncated: boolean;
+  error: string | null;
+  createdAt: string;
+}
 export type Verdict = 'CORRECT' | 'PARTIAL' | 'INCORRECT';
 export type AiLikelihood = 'LOW' | 'MEDIUM' | 'HIGH';
 export type SwipeValuation = 'LIKE' | 'DISLIKE';
@@ -191,12 +206,20 @@ export interface PresentedOption {
   text: string;
 }
 
+/** One file of a multi-file CODE workspace (IDE wave 2). */
+export interface CodeFileView {
+  path: string;
+  content: string;
+}
+
 /** The candidate-visible surface of a drawn question (lib/session/draw.ts). */
 export interface PresentedQuestion {
   prompt: string;
   options?: PresentedOption[];
   language?: string;
   starterCode?: string;
+  starterFiles?: CodeFileView[];
+  entryPath?: string;
 }
 
 /** `presented` travels as Prisma.JsonValue — extract defensively. */
@@ -212,6 +235,16 @@ export function asPresented(value: unknown): PresentedQuestion {
         : undefined,
       language: typeof v.language === 'string' ? v.language : undefined,
       starterCode: typeof v.starterCode === 'string' ? v.starterCode : undefined,
+      starterFiles:
+        Array.isArray(v.starterFiles)
+          ? v.starterFiles
+              .filter(
+                (f): f is { path: string; content: string } =>
+                  typeof f === 'object' && f !== null && typeof (f as { path?: unknown }).path === 'string' && typeof (f as { content?: unknown }).content === 'string',
+              )
+              .map((f) => ({ path: f.path, content: f.content }))
+          : undefined,
+      entryPath: typeof v.entryPath === 'string' ? v.entryPath : undefined,
     };
   }
   return { prompt: '' };
@@ -226,7 +259,8 @@ export interface SessionQuestionView {
 export type AnswerContent =
   | Record<string, SwipeValuation> // SWIPE_MCQ: optionId → LIKE | DISLIKE
   | { optionId: string } // MCQ
-  | { text: string }; // WRITTEN | CODE
+  | { text: string } // WRITTEN | legacy single-file CODE
+  | { files: CodeFileView[]; entry: string }; // multi-file CODE (IDE wave 2)
 
 /** The session view: questions in order + saved answers + clock meta. */
 export interface SessionView {

@@ -2,7 +2,7 @@
   "name": "@provahr/web",
   "version": "0.1.0",
   "private": true,
-  "description": "ProvaHR web frontend \u2014 HR console, public board, candidate test portal.",
+  "description": "ProvaHR web frontend — HR console, public board, candidate test portal.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -12,6 +12,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "monaco-editor": "^0.57.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.0"

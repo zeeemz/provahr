@@ -526,6 +526,33 @@ function XrayQuestionCard({
 }
 
 function AnswerText({ answer, code }: { answer: unknown; code?: boolean }): JSX.Element {
+  // Multi-file CODE answer (IDE wave 2): each file as its own labeled block,
+  // entry first — the same view the reviewer's eye would follow in an IDE.
+  if (code === true && typeof answer === 'object' && answer !== null && Array.isArray((answer as { files?: unknown }).files)) {
+    const raw = (answer as { files: unknown[]; entry?: unknown }).files
+      .filter(
+        (f): f is { path: string; content: string } =>
+          typeof f === 'object' && f !== null &&
+          typeof (f as { path?: unknown }).path === 'string' && typeof (f as { content?: unknown }).content === 'string',
+      );
+    if (raw.length > 0) {
+      const entry = typeof (answer as { entry?: unknown }).entry === 'string' ? (answer as { entry: string }).entry : raw[0]!.path;
+      const ordered = [...raw.filter((f) => f.path === entry), ...raw.filter((f) => f.path !== entry)];
+      return (
+        <div>
+          {ordered.map((f) => (
+            <div key={f.path} style={{ marginBottom: 8 }}>
+              <div className="hint" style={{ margin: 0 }}>
+                <code>{f.path}</code>
+                {f.path === entry && <span className="badge outline" style={{ marginLeft: 6 }}>entry</span>}
+              </div>
+              <pre>{f.content}</pre>
+            </div>
+          ))}
+        </div>
+      );
+    }
+  }
   if (typeof answer === 'object' && answer !== null && 'text' in answer) {
     const t = (answer as { text: unknown }).text;
     if (typeof t === 'string') {

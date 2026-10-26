@@ -29,11 +29,28 @@ export { IMAGE_ALLOW_LIST };
  * (`-` / `-s --` convention) so the code never touches the container
  * filesystem or a host mount. Per-case args are appended AFTER these tokens —
  * argv entries only, never interpolated into a shell string.
+ *
+ * MULTI-FILE MODE (IDE wave 2): when the program is a FILE SET, the stdin
+ * payload becomes a POSIX-sh bootstrap (see buildBootstrap) and the prefix is
+ * always `sh -s --` — the entry file's interpreter is exec'd BY the bootstrap,
+ * not by the container command. `sh` (busybox) ships in every allow-listed
+ * image; the flag region above the image is byte-identical either way, so the
+ * exact-prefix hardening law is untouched (tokens after the image are inert
+ * data by that law's own construction).
  */
 const COMMAND_PREFIX: Record<CodeLanguage, readonly string[]> = {
   BASH: ['bash', '-s', '--'],
   NODE: ['node', '-'],
   PYTHON: ['python', '-'],
+};
+
+const MULTI_FILE_PREFIX: readonly string[] = ['sh', '-s', '--'];
+
+/** Entry-file interpreter per language (multi-file bootstrap's exec line). */
+const ENTRY_INTERPRETER: Record<CodeLanguage, string> = {
+  BASH: 'bash',
+  NODE: 'node',
+  PYTHON: 'python',
 };
 
 /** tmpfs scratch space: the ONLY writable, executable path (rootfs is RO). */
@@ -69,7 +86,7 @@ export function stopTimeoutSeconds(timeoutMs: number): number {
  * and AppError(500, 'SANDBOX_TEMPLATE_UNSAFE') for an unsafe image override.
  */
 export function buildRunArgs(
-  req: { language: CodeLanguage; case?: SandboxCase },
+  req: { language: CodeLanguage; case?: SandboxCase; multiFile?: boolean },
   opts?: { timeoutMs?: number; image?: string },
 ): string[] {
   // hasOwnProperty guard: '__proto__' would otherwise resolve truthy through
@@ -93,6 +110,7 @@ export function buildRunArgs(
   // default would hide a bad row from the operator (see docblock above).
   const image = opts?.image !== undefined ? requireSafeTemplateImage(opts.image) : IMAGE_ALLOW_LIST[req.language];
   const timeoutMs = opts?.timeoutMs ?? PER_CASE_TIMEOUT_MS;
+  const prefix = req.multiFile === true ? MULTI_FILE_PREFIX : COMMAND_PREFIX[req.language];
   return [
     '--rm', // container destroyed immediately after the run (PLAN §10)
     '--network',
@@ -114,19 +132,107 @@ export function buildRunArgs(
     String(stopTimeoutSeconds(timeoutMs)), // docker-side kill backstop
     '-i', // stdin carries the candidate's program
     image,
-    ...COMMAND_PREFIX[req.language],
+    ...prefix,
     ...(req.case?.args ?? []),
   ];
 }
+
+/** First line of every multi-file bootstrap — lets the executor detect a
+ *  pre-built bootstrap in `code` (the run path passes strings only). */
+export const BOOTSTRAP_MARKER = '#__provahr_multifile__';
 
 /**
  * The stdin payload piped into the running container for `testCase`: the
  * candidate's PROGRAM text (v1 runs the identical program for every case;
  * cases differ only via argv). Case-stdin input is not supported in v1 —
  * see buildRunArgs.
+ *
+ * MULTI-FILE MODE: either `req.files` is set (the evaluation path — the
+ * bootstrap is built here) or `req.code` already IS a bootstrap (the IDE-run
+ * path passes strings only — detected via BOOTSTRAP_MARKER and passed
+ * through verbatim).
  */
 export function stdinPayload(req: SandboxRequest, _testCase: SandboxCase): string {
+  if (req.files !== undefined && req.files.length > 0) {
+    return buildBootstrap(req.language, req.files, req.entry ?? req.files[0]!.path);
+  }
   return req.code;
+}
+
+// ─── Multi-file bootstrap (IDE wave 2) ───────────────────────────────────────
+
+import { Buffer } from 'node:buffer';
+import {
+  isValidFilePath,
+  MAX_CODE_FILES,
+  MAX_FILE_CHARS,
+  MAX_TOTAL_CHARS,
+  type CodeFile,
+} from '../assessment/codeAnswer';
+
+/**
+ * Builds the POSIX-sh bootstrap piped to `sh -s --` for a multi-file program:
+ *
+ *   set -eu
+ *   mkdir -p /tmp/w && cd /tmp/w
+ *   printf '%s' '<base64>' | base64 -d > '<path>'   (per file)
+ *   exec <interpreter> '<entry>' "$@"
+ *
+ * QUOTING MODEL: file contents travel base64 (alphabet [A-Za-z0-9+/=]) and
+ * paths are re-validated against the traversal-free grammar here — both are
+ * inert inside single quotes, so nothing candidate-authored is ever
+ * interpreted by this shell. Paths and the entry are REQUIRED to match the
+ * same grammar the answer validator enforced; this is the defense-in-depth
+ * layer (a hand-edited DB row cannot smuggle a metacharacter through).
+ * PURE: builds a string, touches nothing.
+ *
+ * Throws AppError(400, 'SANDBOX_BAD_FILE') on any violation.
+ */
+export function buildBootstrap(language: CodeLanguage, files: CodeFile[], entry: string): string {
+  if (!Object.prototype.hasOwnProperty.call(ENTRY_INTERPRETER, language)) {
+    throw new AppError(400, `Unsupported sandbox language: ${String(language)}`, 'SANDBOX_LANGUAGE_UNSUPPORTED');
+  }
+  if (files.length < 1 || files.length > MAX_CODE_FILES) {
+    throw new AppError(400, `Multi-file programs carry 1-${MAX_CODE_FILES} files`, 'SANDBOX_BAD_FILE');
+  }
+  const seen = new Set<string>();
+  let total = 0;
+  const lines: string[] = [BOOTSTRAP_MARKER, 'set -eu', 'mkdir -p /tmp/w', 'cd /tmp/w'];
+  for (const file of files) {
+    if (!isValidFilePath(file.path) || seen.has(file.path)) {
+      throw new AppError(400, `Unsafe or duplicate file path: ${String(file.path).slice(0, 80)}`, 'SANDBOX_BAD_FILE');
+    }
+    if (typeof file.content !== 'string' || file.content.length > MAX_FILE_CHARS) {
+      throw new AppError(400, `File too large: ${file.path}`, 'SANDBOX_BAD_FILE');
+    }
+    seen.add(file.path);
+    total += file.content.length;
+    if (total > MAX_TOTAL_CHARS) {
+      throw new AppError(400, 'Multi-file program exceeds the total size cap', 'SANDBOX_BAD_FILE');
+    }
+    lines.push(`printf '%s' '${Buffer.from(file.content, 'utf8').toString('base64')}' | base64 -d > '${file.path}'`);
+  }
+  if (!isValidFilePath(entry) || !seen.has(entry)) {
+    throw new AppError(400, 'Entry must name one of the files', 'SANDBOX_BAD_FILE');
+  }
+  lines.push(`exec ${ENTRY_INTERPRETER[language]} '${entry}' "$@"`);
+  return lines.join('\n') + '\n';
+}
+
+/**
+ * Program view of a NORMALIZED code answer (either arm) for the executor:
+ * single-file answers run as plain source; multi-file answers run as the
+ * pre-built bootstrap script (`bootstrap: true` switches the interpreter
+ * prefix to `sh -s --`). Pure; re-validates everything buildBootstrap checks.
+ */
+export function programFor(
+  normalized: { kind: 'text'; text: string } | { kind: 'files'; files: CodeFile[]; entry: string },
+  language: CodeLanguage,
+): { code: string; bootstrap: boolean } {
+  if (normalized.kind === 'text') {
+    return { code: normalized.text, bootstrap: false };
+  }
+  return { code: buildBootstrap(language, normalized.files, normalized.entry), bootstrap: true };
 }
 
 // ─── Runtime invariant checker (used by DockerExecutor AND the tests) ─────────

@@ -252,3 +252,381 @@ button.dislike.off:hover { background: var(--danger-bg); color: var(--danger); }
   vertical-align: -4px; margin-right: 8px;
 }
 @keyframes rot { to { transform: rotate(360deg); } }
+
+/* ─── IDE code-question workspace (Monaco, 2026-10) ──────────────────────────
+   A CODE question takes over the viewport: full-bleed dark chrome edge-to-
+   edge — top bar (question, timer, nav), thin progress line, then the
+   two-pane workspace filling the remaining height. MCQ / SWIPE / WRITTEN
+   keep the ordinary light exam card. */
+
+.ide-page {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: #12141c;
+  color: #d7dae0;
+  overflow: hidden; /* the editor and console scroll internally */
+}
+
+/* ── Top bar: brand · question · timer · nav ── */
+.ide-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  height: 46px;
+  flex: 0 0 46px;
+  background: #161923;
+  border-bottom: 1px solid #232936;
+}
+.ide-topbar-side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.ide-brand {
+  color: #ffffff;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.ide-topbar-sep {
+  width: 1px;
+  height: 18px;
+  background: #2a3040;
+}
+.ide-timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #aeb6c2;
+  white-space: nowrap;
+}
+.ide-timer.danger {
+  color: #f87171;
+  animation: idePulse 1s infinite;
+}
+@keyframes idePulse {
+  50% { opacity: 0.45; }
+}
+.ide-save-error {
+  color: #f87171;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.ide-nav {
+  background: #1d2330;
+  color: #d7dae0;
+  border: 1px solid #2a3040;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ide-nav:hover:not(:disabled) {
+  background: #262e3f;
+}
+.ide-nav:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ide-nav-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+.ide-nav-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+.ide-progress {
+  flex: 0 0 3px;
+  background: #1a1e29;
+}
+.ide-progress > div {
+  height: 3px;
+  background: var(--primary);
+  transition: width 0.3s;
+}
+
+/* The workspace fills everything below the top bar. */
+.ide-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.ide-fill .ide {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  grid-template-columns: 320px minmax(0, 1fr);
+}
+.ide-fill .ide-main {
+  min-height: 0;
+}
+.ide-fill .ide-editor {
+  flex: 1;
+  min-height: 200px;
+  height: auto;
+}
+.ide-fill .ide-side {
+  min-height: 0;
+}
+.ide-fill .ide-task {
+  max-height: none;
+  flex: 1;
+}
+
+.ide {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  margin-top: 12px;
+  border: 1px solid #232936;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #12141c;
+  color: #d7dae0;
+  box-shadow: 0 12px 32px rgba(6, 8, 14, 0.35);
+}
+
+/* ── Left: task + files sidebar ── */
+.ide-side {
+  background: #161923;
+  border-right: 1px solid #232936;
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
+}
+.ide-side-head {
+  padding: 10px 14px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #7d8590;
+  border-bottom: 1px solid #232936;
+}
+.ide-task {
+  padding: 12px 14px 16px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  overflow: auto;
+  max-height: 46vh;
+  white-space: pre-wrap;
+}
+.ide-task .badge {
+  margin-bottom: 8px;
+  display: inline-block;
+}
+.ide-files {
+  margin-top: auto;
+  border-top: 1px solid #232936;
+}
+.ide-files ul {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+.ide-files li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: #aeb6c2;
+}
+.ide-files li.active {
+  background: #1d2330;
+  color: #ffffff;
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+.ide-entry-tag {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: #7d8590;
+  border: 1px solid #333b4a;
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* ── Right: editor column ── */
+.ide-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ide-tabs {
+  display: flex;
+  align-items: stretch;
+  background: #161923;
+  border-bottom: 1px solid #232936;
+}
+.ide-tab {
+  padding: 9px 18px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: #aeb6c2;
+  background: #12141c;
+  border-right: 1px solid #232936;
+}
+.ide-tab.active {
+  color: #ffffff;
+  background: #1e1e1e;
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+.ide-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+.ide-run {
+  background: #16a34a;
+  border: none;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ide-run:hover:not(:disabled) {
+  background: #15803d;
+}
+.ide-run:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.ide-run-hint {
+  font-size: 0.68rem;
+  color: #7d8590;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.ide-editor {
+  height: 460px;
+}
+.ide-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 460px;
+  background: #1e1e1e;
+  color: #9d9d9d;
+  font-size: 0.85rem;
+}
+.ide-status {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 5px 14px;
+  background: #161923;
+  border-top: 1px solid #232936;
+  color: #7d8590;
+  font-size: 0.68rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.ide-status .ok { color: #4ade80; }
+
+/* ── Terminal console ── */
+.ide-console {
+  border-top: 1px solid #232936;
+  background: #0e1016;
+}
+.ide-console-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  color: #7d8590;
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border-bottom: 1px solid #1a1e29;
+}
+.ide-console-head .label { font-weight: 700; letter-spacing: 0.1em; }
+.ide-args {
+  background: #161923;
+  border: 1px solid #2a3040;
+  color: #d7dae0;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  width: 320px;
+  max-width: 100%;
+}
+.ide-args:focus { outline: 1px solid var(--primary); }
+.ide-output pre {
+  margin: 0;
+  padding: 12px 14px;
+  background: transparent;
+  color: #c9d1d9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow: auto;
+}
+.ide-output pre.err {
+  color: #f87171;
+}
+.ide-output .meta {
+  padding: 6px 14px 0;
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #7d8590;
+}
+.ide-output .meta .pass { color: #4ade80; }
+.ide-output .meta .fail { color: #f87171; }
+.ide-fill .ide-loading {
+  height: 100%;
+}
+
+/* ─── File explorer bits (IDE wave 2) ── */
+.ide-file-actions { display: flex; gap: 4px; }
+.ide-mini {
+  background: transparent;
+  border: 1px solid #2a3040;
+  color: #7d8590;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  padding: 1px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ide-mini:hover:not(:disabled) { color: #d7dae0; border-color: #3a4254; }
+.ide-mini:disabled { opacity: 0.4; cursor: default; }
+.ide-newfile {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid #232936;
+}
+.ide-newfile input {
+  flex: 1;
+  min-width: 0;
+  background: #12141c;
+  border: 1px solid #2a3040;
+  color: #d7dae0;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+}
+.ide-newfile input:focus { outline: 1px solid var(--primary); }
+.ide-file-note {
+  margin: 0;
+  padding: 0 10px 8px;
+  color: #f87171;
+  font-size: 0.7rem;
+}
