@@ -350,6 +350,17 @@ Authoritative list: [`docs/PLAN.md` §12](docs/PLAN.md#12-decision-log-founder-c
 
 Append-only. Newest first.
 
+- **2026-10-26 (demo video refresh — `docs/assets/provehr-ide-demo.mp4`)** —
+  New 40s demo video reflecting the current product (IDE code interviews,
+  walk-in check-in, pipeline Test column, X-ray correct-answer overlay);
+  assembled from 7 captioned stills + title/outro cards (ffmpeg, 1600×900 →
+  H.264 30fps, 438 KB). Live screen-recording abandoned: the recording API
+  caps at 90s and a mid-flow tab reload kills the capture; also Monaco
+  refuses synthetic typing, so the candidate answer was seeded via the API
+  and re-loaded on camera. README "Watch the demo" + Demo videos sections
+  now lead with the new video; dead `provehr-ide-demo-raw.webm` (5-frame
+  dud) removed. Frame sources in `demo-frames-ide/` (untracked). *(main)*
+
 - **2026-10-26 (IDE wave 2 — file explorer + multi-file execution)** — The
   IDE is now a real workspace: CODE items may carry `starterFiles` (≤8,
   traversal-free paths) + `entry` (additive-optional — existing pools parse

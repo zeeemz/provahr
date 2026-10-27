@@ -14,7 +14,7 @@
 - 🏠 **Self-hosted, your data, your keys.** Docker Compose, Postgres, per-tenant LLM providers (OpenAI-compatible / Anthropic / Ollama). Nothing leaves your infrastructure.
 - 💸 **$0 per seat.** AGPL-3.0. Bring your own everything.
 
-> 🚀 **Watch the demo**: [`docs/assets/provehr-sales-pitch.mp4`](docs/assets/provehr-sales-pitch.mp4) — a 2-minute labeled walkthrough of the entire product.
+> 🚀 **Watch the demo**: [`docs/assets/provehr-ide-demo.mp4`](docs/assets/provehr-ide-demo.mp4) — IDE code interviews, walk-in check-in, pipeline scores and the X-ray, end to end in 40 seconds.
 
 ---
 
@@ -42,7 +42,8 @@
 
 ## Demo videos
 
-- **[`docs/assets/provehr-sales-pitch.mp4`](docs/assets/provehr-sales-pitch.mp4)** — the full demo: 12 labeled chapters (platform setup, tenant onboarding, the AI loop, candidate experience, the X-ray, human pipeline).
+- **[`docs/assets/provehr-ide-demo.mp4`](docs/assets/provehr-ide-demo.mp4)** — **the current product**: walk-in check-in → consent → the Monaco IDE with file explorer and Run-in-a-container → instant objective marks → pipeline test scores → the evaluation X-ray with correct answers explained. 40 seconds, end to end.
+- **[`docs/assets/provehr-sales-pitch.mp4`](docs/assets/provehr-sales-pitch.mp4)** — the full platform tour: 12 labeled chapters (platform setup, tenant onboarding, the AI loop, candidate experience, the X-ray, human pipeline).
 - **[`docs/assets/demo-two-tier-prompts.mp4`](docs/assets/demo-two-tier-prompts.mp4)** — the two-tier system-prompt feature in detail.
 
 ## UI / UX
